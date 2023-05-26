@@ -1,0 +1,8 @@
+
+data-scaffolding/terraform/.terraform/
+
+data-scaffolding/terraform/.terraform.lock.hcl
+
+sdlc-scaffolding/terraform/.terraform/
+
+sdlc-scaffolding/terraform/.terraform.lock.hcl
