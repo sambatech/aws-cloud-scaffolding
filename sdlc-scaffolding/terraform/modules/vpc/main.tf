@@ -9,11 +9,11 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_subnet" "public_subnets" {
-  count             = length(var.vpc_public_subnet_cidrs)
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = element(var.vpc_public_subnet_cidrs, count.index)
-  availability_zone = element(var.vpc_availability_zones, count.index)
-
+  count                   = length(var.vpc_public_subnet_cidrs)
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = element(var.vpc_public_subnet_cidrs, count.index)
+  availability_zone       = element(var.vpc_availability_zones, count.index)
+  map_public_ip_on_launch = true
   tags = {
     Name = "subnet-sdlc-pub-${count.index + 1}"
   }
