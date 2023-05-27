@@ -35,6 +35,12 @@ variable vpn_ami_id {
   description = "AWS AMI IDs for OpenVPN images"
 }
 
-variable vpn_server_username {
+variable vpn_username {
   description = "Username used to enter the VPN Console configuration"
 }
+
+################################
+# SONARQUBE
+################################
+variable sonarqube_ami_id {}
+variable sonarqube_rds_username {}

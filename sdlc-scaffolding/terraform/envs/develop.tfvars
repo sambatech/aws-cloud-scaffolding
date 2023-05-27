@@ -13,5 +13,11 @@ vpc_availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
 # VPN
 ################################
 # To use this AMI you need to accept the Marketplace terms in console
-vpn_ami_id               = "ami-0f95ee6f985388d58"
-vpn_server_username      = "openvpn-sambatech-user"
+vpn_ami_id         = "ami-0f95ee6f985388d58"
+vpn_username       = "openvpn-sambatech-user"
+
+################################
+# SOANRQUBEs
+################################
+sonarqube_ami_id       = "ami-05e8b60704d9ce1a4"
+sonarqube_rds_username = "sonarqube"
