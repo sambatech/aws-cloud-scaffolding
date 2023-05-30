@@ -19,5 +19,5 @@ vpn_username       = "openvpn-sambatech-user"
 ################################
 # SOANRQUBEs
 ################################
-sonarqube_ami_id       = "ami-05e8b60704d9ce1a4"
+sonarqube_ami_id       = "ami-0eaf46e514bf33723"
 sonarqube_rds_username = "sonarqube"

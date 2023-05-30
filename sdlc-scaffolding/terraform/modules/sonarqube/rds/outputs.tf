@@ -3,5 +3,5 @@ output out_database_password {
 }
 
 output out_database_endpoint {
-  value     = aws_db_instance.database.endpoint
+  value     = aws_rds_cluster.database.endpoint
 }

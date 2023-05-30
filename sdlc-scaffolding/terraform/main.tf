@@ -33,10 +33,11 @@ module "vpn" {
 module "sonarqube" {
   source = "./modules/sonarqube"
 
-  sonarqube_vpc      = module.vpc.out_vpc
-  sonarqube_ami_id   = var.sonarqube_ami_id
-  sonarqube_subnets  = module.vpc.out_private_subnets
-  sonarqube_username = var.sonarqube_rds_username
+  sonarqube_vpc                = module.vpc.out_vpc
+  sonarqube_ami_id             = var.sonarqube_ami_id
+  sonarqube_subnets            = module.vpc.out_private_subnets
+  sonarqube_username           = var.sonarqube_rds_username
+  sonarqube_availability_zones = var.vpc_availability_zones
 }
 
 module "secrets" {

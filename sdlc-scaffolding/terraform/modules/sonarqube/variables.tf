@@ -4,3 +4,6 @@ variable sonarqube_username {}
 variable sonarqube_subnets {
     type = list
 }
+variable sonarqube_availability_zones {
+    type = list
+}

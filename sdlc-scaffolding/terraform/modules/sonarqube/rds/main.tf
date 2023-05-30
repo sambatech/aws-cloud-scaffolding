@@ -7,7 +7,7 @@ resource "random_string" "password" {
 
 resource "aws_security_group" "instance" {
   vpc_id      = var.rds_vpc.id
-  name        = "sgr-sonarqube-db"
+  name        = "sgr-sonarqube-cluster"
   description = "Allow all local inbound for Postgres"
 
   ingress {
@@ -27,18 +27,31 @@ resource "aws_db_subnet_group" "default" {
   }
 }
 
-resource "aws_db_instance" "database" {
-  identifier             = "sonarqube-db"
-  db_name                = "sonarqube"
-  instance_class         = "db.t3.medium"
-  allocated_storage      = 5
-  max_allocated_storage  = 100
-  engine                 = "postgres"
+resource "aws_rds_cluster" "database" {
+  cluster_identifier     = "sonarqube-cluster"
+  database_name          = "sonarqube"
+  engine                 = "aurora-postgresql"
+  engine_mode            = "provisioned"
   engine_version         = "15"
+
   skip_final_snapshot    = true
-  publicly_accessible    = false
   db_subnet_group_name   = aws_db_subnet_group.default.name
   vpc_security_group_ids = [aws_security_group.instance.id]
-  username               = var.rds_username
-  password               = random_string.password.result
+  availability_zones     = var.rds_availability_zones
+
+  master_username        = var.rds_username
+  master_password        = random_string.password.result
+
+  serverlessv2_scaling_configuration {
+    max_capacity = 2.0
+    min_capacity = 0.5
+  }
+}
+
+resource "aws_rds_cluster_instance" "instance" {
+  identifier         = "sonarqube-node"
+  instance_class     = "db.serverless"
+  cluster_identifier = aws_rds_cluster.database.id
+  engine             = aws_rds_cluster.database.engine
+  engine_version     = aws_rds_cluster.database.engine_version
 }

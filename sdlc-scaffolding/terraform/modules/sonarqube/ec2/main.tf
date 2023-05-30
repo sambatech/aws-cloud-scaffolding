@@ -51,6 +51,26 @@ resource "aws_security_group" "sonarqube" {
   }
 }
 
+data "template_file" "sonar_properties" {
+  template = "${file("${path.module}/files/sonar.properties")}"
+  vars = {
+    sonar_jdbc_username = var.ec2_db_username
+    sonar_jdbc_password = var.ec2_db_password
+    sonar_jdbc_url      = "jdbc:postgresql://${var.ec2_db_endpoint}/sonarqube"
+  }
+}
+
+data "cloudinit_config" "content" {
+  gzip          = false
+  base64_encode = false
+
+  part {
+    content_type = "text/x-java-properties"
+    filename     = "sonar.properties"
+    content      = data.template_file.sonar_properties.rendered
+  }
+}
+
 resource "aws_instance" "sonarqube" {
   ami                         = var.ec2_ami_id
   instance_type               = "t2.medium"
@@ -58,13 +78,15 @@ resource "aws_instance" "sonarqube" {
   key_name                    = aws_key_pair.sonarqube.key_name
   vpc_security_group_ids      = [aws_security_group.sonarqube.id]
 
-    user_data = <<-EOF
-      #!/bin/bash
-      echo "export SONAR_JDBC_USERNAME=${var.ec2_db_username}" >> /etc/profile.d/sonarqube.sh
-      echo "export SONAR_JDBC_PASSWORD=${var.ec2_db_password}" >> /etc/profile.d/sonarqube.sh
-      echo "export SONAR_JDBC_URL=jdbc:postgresql://${var.ec2_db_endpoint}/sonarqube" >> /etc/profile.d/sonarqube.sh
-      EOF
+  # EC2 imposes a maximum user-data size of 64 kilobytes, 
+  # so all of the encoded data together must fit within that limit.
+  user_data = data.cloudinit_config.content.rendered
 
+  lifecycle {
+    ignore_changes = [
+      user_data,
+    ]
+  }
   tags = {
     Name = "ec2-sonarqube"
   }
