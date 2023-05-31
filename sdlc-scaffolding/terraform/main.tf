@@ -6,7 +6,7 @@ terraform {
     }
   }
   backend "s3" {
-    profile = "develop"
+    profile = "platform"
     bucket = "opensamba-terraform-st"
     key    = "sdlc/terraform.tfstate"
     region = "us-east-1"

@@ -1,5 +1,5 @@
 aws_region               = "us-east-1"
-aws_profile              = "develop"
+aws_profile              = "platform"
 
 ################################
 # VPC

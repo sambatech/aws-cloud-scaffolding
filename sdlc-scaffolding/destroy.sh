@@ -1,3 +1,3 @@
 #!/bin/bash
 
-terraform -chdir="./terraform" destroy -var-file="envs/develop.tfvars"
+terraform -chdir="./terraform" destroy -var-file="envs/platform.tfvars"
