@@ -9,7 +9,7 @@ resource "aws_key_pair" "deployer" {
 }
 
 resource "local_sensitive_file" "pem_file" {
-  filename             = pathexpand("~/.ssh/id_openvpn-${var.vpn_aws_profile}.pem")
+  filename             = pathexpand("~/.ssh/${aws_key_pair.deployer.key_name}.pem")
   file_permission      = "600"
   directory_permission = "700"
   content              = tls_private_key.ssh.private_key_pem
@@ -45,6 +45,13 @@ resource "aws_security_group" "instance" {
     from_port   = 1194
     to_port     = 1194
     protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }

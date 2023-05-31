@@ -9,7 +9,7 @@ resource "aws_key_pair" "sonarqube" {
 }
 
 resource "local_sensitive_file" "pem_file" {
-  filename             = pathexpand("~/.ssh/id_sonarqube.pem")
+  filename             = pathexpand("~/.ssh/${aws_key_pair.sonarqube.key_name}.pem")
   file_permission      = "600"
   directory_permission = "700"
   content              = tls_private_key.ssh.private_key_pem
