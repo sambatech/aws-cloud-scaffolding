@@ -5,6 +5,12 @@ terraform {
       version = "~> 4.57.0"
     }
   }
+  backend "s3" {
+    profile = "develop"
+    bucket = "opensamba-terraform-st"
+    key    = "sdlc/terraform.tfstate"
+    region = "us-east-1"
+  }
 }
 
 provider "aws" {
@@ -21,8 +27,8 @@ module "vpc" {
   vpc_availability_zones   = var.vpc_availability_zones
 }
 
-module "vpn" {
-  source = "./modules/vpn"
+module "openvpn" {
+  source = "./modules/openvpn"
 
   vpn_aws_profile   = var.aws_profile
   vpn_ami_id        = var.vpn_ami_id
@@ -45,8 +51,8 @@ module "secrets" {
 
   secret_aws_profile           = var.aws_profile
   secret_vpn_username          = var.vpn_username
-  secret_vpn_password          = module.vpn.out_server_password
-  secret_vpn_pem               = module.vpn.out_server_pem
+  secret_vpn_password          = module.openvpn.out_server_password
+  secret_vpn_pem               = module.openvpn.out_server_pem
 
   secret_sonarqube_pem          = module.sonarqube.out_server_pem
   secret_sonarqube_rds_username = var.sonarqube_rds_username
