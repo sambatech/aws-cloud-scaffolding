@@ -55,3 +55,18 @@ resource "aws_rds_cluster_instance" "instance" {
   engine             = aws_rds_cluster.database.engine
   engine_version     = aws_rds_cluster.database.engine_version
 }
+
+resource "aws_secretsmanager_secret" "sonarqube_rds_credentials" {
+   name                    = "/sdlc/rds/sonarqube/credentials"
+   recovery_window_in_days = 0
+}
+
+resource "aws_secretsmanager_secret_version" "sonarqube_rds_credentials_version" {
+  secret_id = aws_secretsmanager_secret.sonarqube_rds_credentials.id
+  secret_string = <<EOF
+   {
+    "username": "${aws_rds_cluster.database.master_username}",
+    "password": "${aws_rds_cluster.database.master_password}"
+   }
+EOF
+}

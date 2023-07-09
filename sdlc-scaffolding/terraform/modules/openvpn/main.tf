@@ -79,3 +79,28 @@ resource "aws_instance" "openvpn" {
     Name = "ec2-openvpn"
   }
 }
+
+resource "aws_secretsmanager_secret" "vpn_credentials" {
+   name                    = "/sdlc/openvpn/credentials"
+   recovery_window_in_days = 0
+}
+
+resource "aws_secretsmanager_secret_version" "vpn_credentials_version" {
+  secret_id = aws_secretsmanager_secret.vpn_credentials.id
+  secret_string = <<EOF
+   {
+    "username": "${var.vpn_username}",
+    "password": "${random_password.password.result}"
+   }
+EOF
+}
+
+resource "aws_secretsmanager_secret" "vpn_pem" {
+   name                    = "/sdlc/openvpn/pem"
+   recovery_window_in_days = 0
+}
+
+resource "aws_secretsmanager_secret_version" "vpn_pem_version" {
+  secret_id     = aws_secretsmanager_secret.vpn_pem.id
+  secret_string = tls_private_key.ssh.private_key_pem
+}

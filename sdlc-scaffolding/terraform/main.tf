@@ -36,6 +36,12 @@ module "openvpn" {
   vpn_username      = var.vpn_username
 }
 
+module "eks" {
+  source = "./modules/eks"
+
+  eks_subnets = module.vpc.out_private_subnets  
+}
+
 module "sonarqube" {
   source = "./modules/sonarqube"
 
@@ -44,17 +50,4 @@ module "sonarqube" {
   sonarqube_subnets            = module.vpc.out_private_subnets
   sonarqube_username           = var.sonarqube_rds_username
   sonarqube_availability_zones = var.vpc_availability_zones
-}
-
-module "secrets" {
-  source = "./modules/secrets"
-
-  secret_aws_profile           = var.aws_profile
-  secret_vpn_username          = var.vpn_username
-  secret_vpn_password          = module.openvpn.out_server_password
-  secret_vpn_pem               = module.openvpn.out_server_pem
-
-  secret_sonarqube_pem          = module.sonarqube.out_server_pem
-  secret_sonarqube_rds_username = var.sonarqube_rds_username
-  secret_sonarqube_rds_password = module.sonarqube.out_database_password
 }
