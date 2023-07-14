@@ -1,9 +1,5 @@
-locals {
-  eks_cluster_name = "platform_cluster"
-}
-
 resource "aws_iam_role" "platform_cluster_role" {
-  name               = "platform_cluster_role"
+  name               = "EKSClusterRole"
   assume_role_policy = jsonencode(
     {
       Version = "2012-10-17",
@@ -13,8 +9,7 @@ resource "aws_iam_role" "platform_cluster_role" {
           Effect = "Allow"
           Principal = {
             Service = [
-              "eks-fargate-pods.amazonaws.com",
-              "eks.amazonaws.com",
+              "eks.amazonaws.com"
             ]
           }
         }
@@ -24,7 +19,7 @@ resource "aws_iam_role" "platform_cluster_role" {
 }
 
 resource "aws_iam_role" "platform_nodegroup_role" {
-  name               = "platform_nodegroup_role"
+  name               = "EKSNodeGroupRole"
   assume_role_policy = jsonencode(
     {
       Version = "2012-10-17",
@@ -42,7 +37,7 @@ resource "aws_iam_role" "platform_nodegroup_role" {
 }
 
 resource "aws_iam_role_policy" "platform_cluster_cloudwatch_policy" {
-  name = "platform_cluster_cloudwatch_policy"
+  name = "EKSClusterCloudwatchPolicy"
   role = aws_iam_role.platform_cluster_role.id
   policy = jsonencode(
     {
@@ -60,57 +55,47 @@ resource "aws_iam_role_policy" "platform_cluster_cloudwatch_policy" {
   )
 }
 
-resource "aws_iam_role_policy" "platform_nodegroup_autoscaling_policy" {
-  name = "platform_nodegroup_autoscaling_policy"
-  role = aws_iam_role.platform_nodegroup_role.id
-  policy = jsonencode(
-    {
-      Version = "2012-10-17",
-      Statement = [
-        {
-          Action = [
-            "autoscaling:DescribeAutoScalingGroups",
-            "autoscaling:DescribeAutoScalingInstances",
-            "autoscaling:DescribeLaunchConfigurations",
-            "autoscaling:DescribeTags",
-            "autoscaling:SetDesiredCapacity",
-            "autoscaling:TerminateInstanceInAutoScalingGroup",
-            "ec2:DescribeLaunchTemplateVersions"
-          ],
-          Effect   = "Allow",
-          Resource = "*"
-        }
-      ]
-    }
-  )
+resource "aws_iam_role_policy_attachment" "platform_cluster_policies_attachment" {
+  for_each = toset([
+    "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
+    "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
+  ])
+
+  role       = aws_iam_role.platform_cluster_role.id
+  policy_arn = each.value
 }
 
-resource "aws_iam_role_policy_attachment" "platform_cluster_policy_attachment" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role       = aws_iam_role.platform_cluster_role.name
-}
+resource "aws_iam_role_policy_attachment" "platform_nodegroup_policies_attachment" {
+  for_each = toset([
+    "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+    "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
+    "arn:aws:iam::aws:policy/AmazonEKSServicePolicy",
+    "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+    "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController",
+    "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+    "arn:aws:iam::aws:policy/EC2InstanceProfileForImageBuilderECRContainerBuilds"
+  ])
 
-resource "aws_iam_role_policy_attachment" "platform_nodegroup_policy_attachment" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
   role       = aws_iam_role.platform_nodegroup_role.id
+  policy_arn = each.value
 }
 
 resource "aws_eks_cluster" "eks_cluster" {
-  name                      = local.eks_cluster_name
+  name                      = var.eks_cluster_name
+  version                   = "1.27"
   role_arn                  = aws_iam_role.platform_cluster_role.arn
   enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
   vpc_config {
+    subnet_ids              = var.eks_subnets.*.id
     endpoint_private_access = true
     endpoint_public_access  = false
-    subnet_ids = var.eks_subnets.*.id
   }
 
   # Ensure that IAM Role permissions are created before and deleted after EKS Cluster handling.
   # Otherwise, EKS will not be able to properly delete EKS managed EC2 infrastructure such as Security Groups.
   depends_on = [
-    aws_iam_role_policy_attachment.platform_cluster_policy_attachment,
-    aws_iam_role_policy_attachment.platform_nodegroup_policy_attachment,
+    aws_iam_role_policy_attachment.platform_cluster_policies_attachment
   ]
 }
 
@@ -144,25 +129,72 @@ data "aws_iam_policy_document" "eks_assume_role_policy" {
 
 resource "aws_iam_role" "platform_cluster_assume_role" {
   assume_role_policy = data.aws_iam_policy_document.eks_assume_role_policy.json
-  name               = "platform_cluster_assume_role"
+  name               = "EKSClusterAssumeRoleWithWebIdentity"
 }
 
 resource "aws_eks_identity_provider_config" "eks_oidc_config" {
-  cluster_name = local.eks_cluster_name
+  cluster_name = var.eks_cluster_name
   oidc {
-    identity_provider_config_name = "platform_oidc_provider"
+    identity_provider_config_name = "EKSClusterOIDCProvider"
     client_id  = substr(data.tls_certificate.eks_cluster_certificate.url, -32, -1)
     issuer_url = data.tls_certificate.eks_cluster_certificate.url
   }
 }
 
-resource "aws_eks_fargate_profile" "eks_fargate_profile" {
-  cluster_name           = aws_eks_cluster.eks_cluster.name
-  fargate_profile_name   = "platform_fargate_profile"
-  pod_execution_role_arn = aws_iam_role.platform_cluster_role.arn
-  subnet_ids             = var.eks_subnets.*.id
+resource "aws_launch_template" "sonarqube_launch_template" {
+  name                   = "sonarqube-launch-template"
+  # See https://cloud-images.ubuntu.com/aws-eks/
+  image_id               = "ami-034ff84bbdab3860d"
+  # See sonarqube requirements prerequisites and overview
+  instance_type          = "t3.xlarge"
+  ebs_optimized          = true
+  update_default_version = true
 
-  selector {
-    namespace = "platform"
+  network_interfaces {
+    associate_public_ip_address = false
   }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name                               = "sonarqube"
+      "kubernetes.io/cluster/${aws_eks_cluster.eks_cluster.name}" = "owned"
+    }
+  }
+}
+
+resource "aws_eks_node_group" "sonarqube_node_group" {
+  node_group_name = "sonarqube"
+  cluster_name    = aws_eks_cluster.eks_cluster.name
+  node_role_arn   = aws_iam_role.platform_nodegroup_role.arn
+  subnet_ids      = var.eks_subnets.*.id
+
+  launch_template {
+    id      = aws_launch_template.sonarqube_launch_template.id
+    version = aws_launch_template.sonarqube_launch_template.latest_version
+  }
+
+  scaling_config {
+    desired_size = 1
+    max_size     = 1
+    min_size     = 1
+  }
+
+  update_config {
+    max_unavailable = 1
+  }
+
+  lifecycle {
+    ignore_changes = [scaling_config[0].desired_size]
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.platform_nodegroup_policies_attachment
+  ]
+}
+
+module "addons" {
+  source = "./addons"
+
+  eks_cluster_name = aws_eks_cluster.eks_cluster.name
 }

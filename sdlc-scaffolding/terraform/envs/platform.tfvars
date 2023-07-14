@@ -10,6 +10,11 @@ vpc_public_subnet_cidrs  = ["123.45.102.0/24", "123.45.104.0/24", "123.45.106.0/
 vpc_availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
 
 ################################
+# EKS
+################################
+eks_cluster_name = "platform_cluster"
+
+################################
 # VPN
 ################################
 # To use this AMI you need to accept the Marketplace terms in console

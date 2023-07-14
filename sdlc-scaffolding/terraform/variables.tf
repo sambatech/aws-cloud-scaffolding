@@ -29,6 +29,13 @@ variable vpc_availability_zones {
 }
 
 ################################
+# EKS
+################################
+variable eks_cluster_name {
+  description = "The name of the EKS cluster"
+}
+
+################################
 # VPN
 ################################
 variable vpn_ami_id {

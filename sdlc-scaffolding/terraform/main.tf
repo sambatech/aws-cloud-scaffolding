@@ -21,10 +21,12 @@ provider "aws" {
 module "vpc" {
   source = "./modules/vpc"
 
+  vpc_aws_region           = var.aws_region
   vpc_cidr_block           = var.vpc_cidr_block
   vpc_private_subnet_cidrs = var.vpc_private_subnet_cidrs
   vpc_public_subnet_cidrs  = var.vpc_public_subnet_cidrs
   vpc_availability_zones   = var.vpc_availability_zones
+  vpc_eks_cluster_name     = var.eks_cluster_name
 }
 
 module "openvpn" {
@@ -39,7 +41,9 @@ module "openvpn" {
 module "eks" {
   source = "./modules/eks"
 
-  eks_subnets = module.vpc.out_private_subnets  
+  eks_vpc_cidr_block = var.vpc_cidr_block
+  eks_subnets        = module.vpc.out_private_subnets
+  eks_cluster_name   = var.eks_cluster_name
 }
 
 module "sonarqube" {
