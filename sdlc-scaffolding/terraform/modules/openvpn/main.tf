@@ -18,7 +18,7 @@ resource "local_sensitive_file" "pem_file" {
 resource "aws_security_group" "instance" {
   name        = "sgr-openvpn"
   description = "OpenVPN security group"
-  vpc_id      = var.vpn_subnet.vpc_id
+  vpc_id      = var.vpn_vpc_id
 
   ingress {
     from_port   = 443
@@ -65,7 +65,7 @@ resource "random_password" "password" {
 resource "aws_instance" "openvpn" {
   ami                         = var.vpn_ami_id
   instance_type               = "t2.micro"
-  subnet_id                   = var.vpn_subnet.id
+  subnet_id                   = var.vpn_subnet_id
   key_name                    = aws_key_pair.deployer.key_name
   vpc_security_group_ids      = [aws_security_group.instance.id]
   associate_public_ip_address = true

@@ -2,7 +2,11 @@ variable vpn_aws_profile {
   description = "The AWS region for creating the infrastructure"
 }
 
-variable vpn_subnet {
+variable vpn_vpc_id {
+  description = "The VPC reference where the VPN must be created"
+}
+
+variable vpn_subnet_id {
   description = "The Subnet reference where the VPN must be created"
 }
 

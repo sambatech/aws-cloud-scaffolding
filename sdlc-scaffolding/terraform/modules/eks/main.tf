@@ -1,200 +1,139 @@
-resource "aws_iam_role" "platform_cluster_role" {
-  name               = "EKSClusterRole"
-  assume_role_policy = jsonencode(
-    {
-      Version = "2012-10-17",
-      Statement = [
-        {
-          Action = "sts:AssumeRole"
-          Effect = "Allow"
-          Principal = {
-            Service = [
-              "eks.amazonaws.com"
-            ]
-          }
-        }
-      ]
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_role" "federated_role" {
+  name = var.eks_federated_role_name
+}
+
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 19.0"
+
+  cluster_name                    = var.eks_cluster_name
+  enable_irsa                     = true
+  cluster_endpoint_public_access  = true
+  cluster_endpoint_private_access = true
+  cluster_version                 = "1.27"
+  vpc_id                          = var.eks_vpc_id
+  subnet_ids                      = var.eks_subnet_ids
+
+  cluster_addons = {
+    coredns = {
+      preserve    = true
+      most_recent = true
+      timeouts = {
+        create = "25m"
+        delete = "10m"
+      }
     }
-  )
-}
-
-resource "aws_iam_role" "platform_nodegroup_role" {
-  name               = "EKSNodeGroupRole"
-  assume_role_policy = jsonencode(
-    {
-      Version = "2012-10-17",
-      Statement = [
-        {
-          Action = "sts:AssumeRole"
-          Effect = "Allow"
-          Principal = {
-            Service = "ec2.amazonaws.com"
-          }
-        }
-      ]
+    kube-proxy = {
+      most_recent = true
     }
-  )
-}
-
-resource "aws_iam_role_policy" "platform_cluster_cloudwatch_policy" {
-  name = "EKSClusterCloudwatchPolicy"
-  role = aws_iam_role.platform_cluster_role.id
-  policy = jsonencode(
-    {
-      Version = "2012-10-17",
-      Statement = [
-        {
-          Action = [
-            "cloudwatch:PutMetricData"
-          ],
-          Effect   = "Allow",
-          Resource = "*"
-        }
-      ]
+    vpc-cni = {
+      most_recent = true
     }
-  )
-}
-
-resource "aws_iam_role_policy_attachment" "platform_cluster_policies_attachment" {
-  for_each = toset([
-    "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
-    "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
-  ])
-
-  role       = aws_iam_role.platform_cluster_role.id
-  policy_arn = each.value
-}
-
-resource "aws_iam_role_policy_attachment" "platform_nodegroup_policies_attachment" {
-  for_each = toset([
-    "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
-    "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy",
-    "arn:aws:iam::aws:policy/AmazonEKSServicePolicy",
-    "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
-    "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController",
-    "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
-    "arn:aws:iam::aws:policy/EC2InstanceProfileForImageBuilderECRContainerBuilds"
-  ])
-
-  role       = aws_iam_role.platform_nodegroup_role.id
-  policy_arn = each.value
-}
-
-resource "aws_eks_cluster" "eks_cluster" {
-  name                      = var.eks_cluster_name
-  version                   = "1.27"
-  role_arn                  = aws_iam_role.platform_cluster_role.arn
-  enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
-
-  vpc_config {
-    subnet_ids              = var.eks_subnets.*.id
-    endpoint_private_access = true
-    endpoint_public_access  = false
   }
 
-  # Ensure that IAM Role permissions are created before and deleted after EKS Cluster handling.
-  # Otherwise, EKS will not be able to properly delete EKS managed EC2 infrastructure such as Security Groups.
-  depends_on = [
-    aws_iam_role_policy_attachment.platform_cluster_policies_attachment
+  # Extend cluster security group rules
+  cluster_security_group_additional_rules = {
+    ingress_nodes_ephemeral_ports_tcp = {
+      description                    = "Nodes on ephemeral ports"
+      protocol                       = "tcp"
+      from_port                      = 1025
+      to_port                        = 65535
+      type                           = "ingress"
+      source_node_security_group     = true
+    }
+    egress_nodes_ephemeral_ports_tcp = {
+      description                    = "To node 1025-65535"
+      protocol                       = "tcp"
+      from_port                      = 1025
+      to_port                        = 65535
+      type                           = "egress"
+      source_node_security_group     = true
+    }
+  }
+
+  # Extend node-to-node security group rules
+  node_security_group_additional_rules = {
+    ingress_self_all   = {
+      description      = "Node to node all ports/protocols"
+      protocol         = "-1"
+      from_port        = 0
+      to_port          = 0
+      type             = "ingress"
+      self             = true
+    }
+    egress_all         = {
+      description      = "Node all egress"
+      protocol         = "-1"
+      from_port        = 0
+      to_port          = 0
+      type             = "egress"
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = ["::/0"]
+    }
+  }
+
+  ##############################################
+  # EKS Managed Node Group(s)
+  ##############################################
+  eks_managed_node_group_defaults = {
+    instance_types = ["t2.xlarge"]
+  }
+
+  eks_managed_node_groups = {
+    sonarqube = {
+      # list of pods per instance type: https://github.com/awslabs/amazon-eks-ami/blob/master/files/eni-max-pods.txt
+      # or run: kubectl get node -o yaml | grep pods
+      instance_types = ["t2.xlarge"]
+      disk_size      = 50
+
+      min_size     = 1
+      max_size     = 1
+      desired_size = 1
+
+      update_config = {
+        max_unavailable = 1
+      }
+    }
+  }
+
+  # aws-auth configmap
+  manage_aws_auth_configmap = true
+
+  aws_auth_roles = [
+    {
+      rolearn  = data.aws_iam_role.federated_role.arn
+      username = data.aws_iam_role.federated_role.name
+      groups   = ["system:masters"]
+    },
+  ]
+
+  aws_auth_users = [
+    {
+      userarn  = data.aws_caller_identity.current.arn
+      username = data.aws_caller_identity.current.user_id
+      groups   = ["system:masters"]
+    }
+  ]
+
+  aws_auth_accounts = [
+    data.aws_caller_identity.current.account_id
   ]
 }
 
-data "tls_certificate" "eks_cluster_certificate" {
-  url = aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer
-}
+module "vpc_cni_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.0"
 
-resource "aws_iam_openid_connect_provider" "oidc_provider" {
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = data.tls_certificate.eks_cluster_certificate.certificates[*].sha1_fingerprint
-  url             = data.tls_certificate.eks_cluster_certificate.url
-}
+  role_name_prefix      = "VPC-CNI-IRSA"
+  attach_vpc_cni_policy = true
+  vpc_cni_enable_ipv6   = true
 
-data "aws_iam_policy_document" "eks_assume_role_policy" {
-  statement {
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-    effect  = "Allow"
-
-    condition {
-      test     = "StringEquals"
-      variable = "${replace(aws_iam_openid_connect_provider.oidc_provider.url, "https://", "")}:sub"
-      values   = ["system:serviceaccount:kube-system:aws-node"]
-    }
-
-    principals {
-      identifiers = [aws_iam_openid_connect_provider.oidc_provider.arn]
-      type        = "Federated"
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:aws-node"]
     }
   }
-}
-
-resource "aws_iam_role" "platform_cluster_assume_role" {
-  assume_role_policy = data.aws_iam_policy_document.eks_assume_role_policy.json
-  name               = "EKSClusterAssumeRoleWithWebIdentity"
-}
-
-resource "aws_eks_identity_provider_config" "eks_oidc_config" {
-  cluster_name = var.eks_cluster_name
-  oidc {
-    identity_provider_config_name = "EKSClusterOIDCProvider"
-    client_id  = substr(data.tls_certificate.eks_cluster_certificate.url, -32, -1)
-    issuer_url = data.tls_certificate.eks_cluster_certificate.url
-  }
-}
-
-resource "aws_launch_template" "sonarqube_launch_template" {
-  name                   = "sonarqube-launch-template"
-  # See https://cloud-images.ubuntu.com/aws-eks/
-  image_id               = "ami-034ff84bbdab3860d"
-  # See sonarqube requirements prerequisites and overview
-  instance_type          = "t3.xlarge"
-  ebs_optimized          = true
-  update_default_version = true
-
-  network_interfaces {
-    associate_public_ip_address = false
-  }
-
-  tag_specifications {
-    resource_type = "instance"
-    tags = {
-      Name                               = "sonarqube"
-      "kubernetes.io/cluster/${aws_eks_cluster.eks_cluster.name}" = "owned"
-    }
-  }
-}
-
-resource "aws_eks_node_group" "sonarqube_node_group" {
-  node_group_name = "sonarqube"
-  cluster_name    = aws_eks_cluster.eks_cluster.name
-  node_role_arn   = aws_iam_role.platform_nodegroup_role.arn
-  subnet_ids      = var.eks_subnets.*.id
-
-  launch_template {
-    id      = aws_launch_template.sonarqube_launch_template.id
-    version = aws_launch_template.sonarqube_launch_template.latest_version
-  }
-
-  scaling_config {
-    desired_size = 1
-    max_size     = 1
-    min_size     = 1
-  }
-
-  update_config {
-    max_unavailable = 1
-  }
-
-  lifecycle {
-    ignore_changes = [scaling_config[0].desired_size]
-  }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.platform_nodegroup_policies_attachment
-  ]
-}
-
-module "addons" {
-  source = "./addons"
-
-  eks_cluster_name = aws_eks_cluster.eks_cluster.name
 }
