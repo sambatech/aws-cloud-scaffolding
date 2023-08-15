@@ -13,3 +13,7 @@ output "out_private_subnet_ids" {
 output "out_private_subnets_cidr_blocks" {
   value = module.vpc.private_subnets_cidr_blocks
 }
+
+output "out_availability_zones" {
+  value = local.azs
+}

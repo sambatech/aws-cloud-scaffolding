@@ -112,8 +112,19 @@ module "eks" {
 
   eks_managed_node_groups = {
     sonarqube = {
-      # list of pods per instance type: https://github.com/awslabs/amazon-eks-ami/blob/master/files/eni-max-pods.txt
-      # or run: kubectl get node -o yaml | grep pods
+      instance_types = ["t3a.large"]
+      disk_size      = 50
+
+      min_size     = 1
+      max_size     = 1
+      desired_size = 1
+
+      update_config = {
+        max_unavailable = 1
+      }
+    }
+
+    harbor = {
       instance_types = ["t3a.large"]
       disk_size      = 50
 
@@ -134,7 +145,11 @@ module "eks" {
     {
       rolearn  = data.aws_iam_role.federated_role.arn
       username = data.aws_iam_role.federated_role.name
-      groups   = ["system:masters"]
+      groups   = [
+        "system:masters", 
+        "system:bootstrappers", 
+        "system:nodes"
+      ]
     },
   ]
 
