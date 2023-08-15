@@ -1,20 +1,40 @@
+locals {
+  iam_role_policy_prefix = "Platform"
+}
+
 data "aws_caller_identity" "current" {}
 
 data "aws_iam_role" "federated_role" {
   name = var.eks_federated_role_name
 }
 
+data "aws_eks_cluster" "default" {
+  name = var.eks_cluster_name
+}
+
+data "aws_eks_cluster_auth" "default" {
+  name = var.eks_cluster_name
+}
+
+provider "kubernetes" {
+  host                   = data.aws_eks_cluster.default.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.default.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.default.token
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.0"
+  version = "~> 19.16"
 
   cluster_name                    = var.eks_cluster_name
+  vpc_id                          = var.eks_vpc_id
+  subnet_ids                      = var.eks_subnet_ids
+  cluster_version                 = "1.27"
+  cluster_ip_family               = "ipv6"
   enable_irsa                     = true
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = true
-  cluster_version                 = "1.27"
-  vpc_id                          = var.eks_vpc_id
-  subnet_ids                      = var.eks_subnet_ids
+  create_cni_ipv6_iam_policy      = true
 
   cluster_addons = {
     coredns = {
@@ -29,7 +49,16 @@ module "eks" {
       most_recent = true
     }
     vpc-cni = {
-      most_recent = true
+      most_recent              = true
+      before_compute           = true
+      service_account_role_arn = module.vpc_cni_irsa.iam_role_arn
+      configuration_values     = jsonencode({
+        env = {
+          # Reference docs https://docs.aws.amazon.com/eks/latest/userguide/cni-increase-ip-addresses.html
+          ENABLE_PREFIX_DELEGATION = "true"
+          WARM_PREFIX_TARGET       = "1"
+        }
+      })
     }
   }
 
@@ -78,14 +107,14 @@ module "eks" {
   # EKS Managed Node Group(s)
   ##############################################
   eks_managed_node_group_defaults = {
-    instance_types = ["t2.xlarge"]
+    instance_types = ["t3a.micro"]
   }
 
   eks_managed_node_groups = {
     sonarqube = {
       # list of pods per instance type: https://github.com/awslabs/amazon-eks-ami/blob/master/files/eni-max-pods.txt
       # or run: kubectl get node -o yaml | grep pods
-      instance_types = ["t2.xlarge"]
+      instance_types = ["t3a.large"]
       disk_size      = 50
 
       min_size     = 1

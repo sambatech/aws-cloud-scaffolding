@@ -32,42 +32,29 @@ module "vpc" {
 module "openvpn" {
   source = "./modules/openvpn"
 
-  vpn_aws_profile   = var.aws_profile
-  vpn_ami_id        = var.vpn_ami_id
   vpn_vpc_id        = module.vpc.out_vpc_id
   vpn_subnet_id     = module.vpc.out_public_subnet_ids[0]
+  vpn_aws_profile   = var.aws_profile
+  vpn_ami_id        = var.vpn_ami_id
   vpn_username      = var.vpn_username
-
-  depends_on = [ 
-    module.vpc
-  ]
 }
 
-module "eks" {
-  source = "./modules/eks"
+module "kubernetes" {
+  source = "./modules/kubernetes"
 
-  eks_federated_role_name = var.iam_federated_role_name
   eks_vpc_id              = module.vpc.out_vpc_id
   eks_subnet_ids          = module.vpc.out_private_subnet_ids
+  eks_federated_role_name = var.iam_federated_role_name
   eks_cluster_name        = var.eks_cluster_name
-
-  depends_on = [ 
-    module.vpc
-  ]
 }
 
 module "sonarqube" {
   source = "./modules/sonarqube"
 
   sonarqube_vpc_id              = module.vpc.out_vpc_id
-  sonarqube_ami_id              = var.sonarqube_ami_id
   sonarqube_subnet_ids          = module.vpc.out_private_subnet_ids
   sonarqube_subnets_cidr_blocks = module.vpc.out_private_subnets_cidr_blocks
+  sonarqube_ami_id              = var.sonarqube_ami_id
   sonarqube_username            = var.sonarqube_rds_username
   sonarqube_availability_zones  = var.vpc_availability_zones
-
-  depends_on = [ 
-    module.vpc,
-    module.eks
-  ]
 }

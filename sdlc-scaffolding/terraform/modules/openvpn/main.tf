@@ -1,10 +1,12 @@
+resource "time_static" "epoch" {}
+
 resource "tls_private_key" "ssh" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
 resource "aws_key_pair" "deployer" {
-  key_name   = "openvpn-key"
+  key_name   = "openvpn-key-${time_static.epoch.unix}"
   public_key = tls_private_key.ssh.public_key_openssh
 }
 
@@ -81,7 +83,7 @@ resource "aws_instance" "openvpn" {
 }
 
 resource "aws_secretsmanager_secret" "vpn_credentials" {
-   name                    = "/sdlc/openvpn/credentials"
+   name                    = "/platform/openvpn/credentials"
    recovery_window_in_days = 0
 }
 
@@ -96,7 +98,7 @@ EOF
 }
 
 resource "aws_secretsmanager_secret" "vpn_pem" {
-   name                    = "/sdlc/openvpn/pem"
+   name                    = "/platform/openvpn/pem"
    recovery_window_in_days = 0
 }
 

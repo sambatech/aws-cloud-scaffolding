@@ -69,7 +69,7 @@ resource "aws_rds_cluster_instance" "instance" {
 }
 
 resource "aws_secretsmanager_secret" "sonarqube_rds_credentials" {
-   name                    = "/sdlc/rds/sonarqube/credentials"
+   name                    = "/platform/sonarqube/rds/credentials"
    recovery_window_in_days = 0
 }
 
