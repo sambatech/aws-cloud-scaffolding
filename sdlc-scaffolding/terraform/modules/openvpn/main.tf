@@ -1,10 +1,12 @@
+resource "time_static" "epoch" {}
+
 resource "tls_private_key" "ssh" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
 resource "aws_key_pair" "deployer" {
-  key_name   = "openvpn-key"
+  key_name   = "openvpn-key-${time_static.epoch.unix}"
   public_key = tls_private_key.ssh.public_key_openssh
 }
 
@@ -18,7 +20,7 @@ resource "local_sensitive_file" "pem_file" {
 resource "aws_security_group" "instance" {
   name        = "sgr-openvpn"
   description = "OpenVPN security group"
-  vpc_id      = var.vpn_subnet.vpc_id
+  vpc_id      = var.vpn_vpc_id
 
   ingress {
     from_port   = 443
@@ -65,7 +67,7 @@ resource "random_password" "password" {
 resource "aws_instance" "openvpn" {
   ami                         = var.vpn_ami_id
   instance_type               = "t2.micro"
-  subnet_id                   = var.vpn_subnet.id
+  subnet_id                   = var.vpn_subnet_id
   key_name                    = aws_key_pair.deployer.key_name
   vpc_security_group_ids      = [aws_security_group.instance.id]
   associate_public_ip_address = true
@@ -81,7 +83,7 @@ resource "aws_instance" "openvpn" {
 }
 
 resource "aws_secretsmanager_secret" "vpn_credentials" {
-   name                    = "/sdlc/openvpn/credentials"
+   name                    = "/platform/openvpn/credentials"
    recovery_window_in_days = 0
 }
 
@@ -96,7 +98,7 @@ EOF
 }
 
 resource "aws_secretsmanager_secret" "vpn_pem" {
-   name                    = "/sdlc/openvpn/pem"
+   name                    = "/platform/openvpn/pem"
    recovery_window_in_days = 0
 }
 

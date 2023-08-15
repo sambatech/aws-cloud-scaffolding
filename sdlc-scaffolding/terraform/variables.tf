@@ -7,6 +7,13 @@ variable aws_profile {
 }
 
 ################################
+# IAM
+################################
+variable iam_federated_role_name {
+  description = "The ARN of the IAM role to assume"
+}
+
+################################
 # VPC
 ################################
 variable vpc_cidr_block {

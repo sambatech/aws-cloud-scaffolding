@@ -6,21 +6,25 @@ resource "random_string" "password" {
 }
 
 resource "aws_security_group" "instance" {
-  vpc_id      = var.rds_vpc.id
+  vpc_id      = var.rds_vpc_id
   name        = "sgr-sonarqube-cluster"
   description = "Allow all local inbound for Postgres"
 
   ingress {
-      from_port   = 5432
-      to_port     = 5432
-      protocol    = "tcp"
-      cidr_blocks = var.rds_subnets.*.cidr_block
-    }
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = var.rds_subnets_cidr_blocks
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_db_subnet_group" "default" {
   name       = "sonarqube-subnet-group"
-  subnet_ids = var.rds_subnets.*.id
+  subnet_ids = var.rds_subnet_ids
 
   tags = {
     Name = "sonarqube-subnet-group"
@@ -46,6 +50,10 @@ resource "aws_rds_cluster" "database" {
     max_capacity = 2.0
     min_capacity = 0.5
   }
+
+  depends_on = [ 
+    aws_security_group.instance
+  ]
 }
 
 resource "aws_rds_cluster_instance" "instance" {
@@ -54,10 +62,14 @@ resource "aws_rds_cluster_instance" "instance" {
   cluster_identifier = aws_rds_cluster.database.id
   engine             = aws_rds_cluster.database.engine
   engine_version     = aws_rds_cluster.database.engine_version
+
+  depends_on = [
+    aws_rds_cluster.database
+  ]
 }
 
 resource "aws_secretsmanager_secret" "sonarqube_rds_credentials" {
-   name                    = "/sdlc/rds/sonarqube/credentials"
+   name                    = "/platform/sonarqube/rds/credentials"
    recovery_window_in_days = 0
 }
 

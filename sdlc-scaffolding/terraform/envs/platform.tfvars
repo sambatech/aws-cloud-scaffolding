@@ -2,6 +2,11 @@ aws_region               = "us-east-1"
 aws_profile              = "platform"
 
 ################################
+# IAM
+################################
+iam_federated_role_name   = "AWSReservedSSO_SystemAdministrator_188db082d08e4ebd"
+
+################################
 # VPC
 ################################
 vpc_cidr_block           = "123.45.0.0/16"
