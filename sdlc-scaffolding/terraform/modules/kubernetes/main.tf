@@ -9,11 +9,11 @@ data "aws_iam_role" "federated_role" {
 }
 
 data "aws_eks_cluster" "default" {
-  name = var.eks_cluster_name
+  name = try(module.eks.cluster_name, module.eks.cluster_id)
 }
 
 data "aws_eks_cluster_auth" "default" {
-  name = var.eks_cluster_name
+  name = try(module.eks.cluster_name, module.eks.cluster_id)
 }
 
 provider "kubernetes" {
