@@ -47,8 +47,8 @@ resource "aws_rds_cluster" "database" {
   master_password        = random_string.password.result
 
   serverlessv2_scaling_configuration {
-    max_capacity = 2.0
     min_capacity = 0.5
+    max_capacity = 2.0
   }
 
   depends_on = [ 
@@ -57,11 +57,13 @@ resource "aws_rds_cluster" "database" {
 }
 
 resource "aws_rds_cluster_instance" "instance" {
-  identifier         = "sonarqube-node"
-  instance_class     = "db.serverless"
-  cluster_identifier = aws_rds_cluster.database.id
-  engine             = aws_rds_cluster.database.engine
-  engine_version     = aws_rds_cluster.database.engine_version
+  count                        = 2
+  identifier                   = "sonarqube-node-${count.index}"
+  instance_class               = "db.serverless"
+  cluster_identifier           = aws_rds_cluster.database.id
+  engine                       = aws_rds_cluster.database.engine
+  engine_version               = aws_rds_cluster.database.engine_version
+  performance_insights_enabled = true
 
   depends_on = [
     aws_rds_cluster.database
@@ -69,7 +71,7 @@ resource "aws_rds_cluster_instance" "instance" {
 }
 
 resource "aws_secretsmanager_secret" "sonarqube_rds_credentials" {
-   name                    = "/platform/sonarqube/rds/credentials"
+   name                    = "/platform/sonarqube/rds/credentials/a"
    recovery_window_in_days = 0
 }
 
@@ -81,4 +83,61 @@ resource "aws_secretsmanager_secret_version" "sonarqube_rds_credentials_version"
     "password": "${aws_rds_cluster.database.master_password}"
    }
 EOF
+}
+
+data "aws_iam_policy_document" "secrets_manager_assume_policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["secretsmanager.amazonaws.com"]
+    }
+
+    effect = "Allow"
+  }
+}
+
+resource "aws_iam_role" "sonarqube_secrets_reader_role" {
+  name               = "SonarQubeSecretsReaderRole"
+  assume_role_policy = data.aws_iam_policy_document.secrets_manager_assume_policy.json
+
+  inline_policy {
+    name = "sonarqube_secrets_reader_policy"
+
+    policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Action: [
+            "secretsmanager:GetResourcePolicy",
+            "secretsmanager:GetSecretValue",
+            "secretsmanager:DescribeSecret",
+            "secretsmanager:ListSecrets",
+            "secretsmanager:ListSecretVersionIds"
+          ]
+          Effect   = "Allow"
+          Resource = aws_secretsmanager_secret.sonarqube_rds_credentials.arn
+        },
+      ]
+    })
+  }
+}
+
+resource "aws_db_proxy" "cluster_proxy" {
+  name                   = "sonarqubeproxy"
+  debug_logging          = false
+  engine_family          = "POSTGRESQL"
+  idle_client_timeout    = 1800
+  require_tls            = true
+  role_arn               = aws_iam_role.sonarqube_secrets_reader_role.arn
+  vpc_subnet_ids         = var.rds_subnet_ids
+  vpc_security_group_ids = [aws_security_group.instance.id]
+
+  auth {
+    auth_scheme = "SECRETS"
+    description = "example"
+    iam_auth    = "DISABLED"
+    secret_arn  = aws_secretsmanager_secret.sonarqube_rds_credentials.arn
+  }
 }

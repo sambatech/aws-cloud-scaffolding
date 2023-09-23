@@ -9,17 +9,19 @@ data "aws_iam_role" "federated_role" {
 }
 
 data "aws_eks_cluster" "default" {
-  name = try(module.eks.cluster_name, module.eks.cluster_id)
+  count = var.create_eks ? 1 : 0
+  name  = module.eks.cluster_id
 }
 
 data "aws_eks_cluster_auth" "default" {
-  name = try(module.eks.cluster_name, module.eks.cluster_id)
+  count = var.create_eks ? 1 : 0
+  name = module.eks.cluster_id
 }
 
 provider "kubernetes" {
-  host                   = data.aws_eks_cluster.default.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.default.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.default.token
+  host                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  cluster_ca_certificate = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  token                  = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
 }
 
 module "eks" {
@@ -30,7 +32,7 @@ module "eks" {
   vpc_id                          = var.eks_vpc_id
   subnet_ids                      = var.eks_subnet_ids
   cluster_version                 = "1.27"
-  cluster_ip_family               = "ipv6"
+  cluster_ip_family               = "ipv4"
   enable_irsa                     = true
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = true
