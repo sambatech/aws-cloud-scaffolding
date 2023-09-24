@@ -15,6 +15,10 @@ variable eks_vpc_id {
   description = "The VPC reference where the EKS must be created"
 }
 
+variable eks_vpc_cidr {
+  description = "value of the EKS VPC CIDR"
+}
+
 variable eks_subnet_ids {
   description = "The VPC subnet list"
   type        = list

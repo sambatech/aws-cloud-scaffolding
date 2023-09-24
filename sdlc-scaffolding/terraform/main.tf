@@ -33,6 +33,7 @@ module "kubernetes" {
   source = "./modules/kubernetes"
 
   eks_vpc_id              = module.network.out_vpc_id
+  eks_vpc_cidr            = module.network.out_vpc_cidr
   eks_subnet_ids          = module.network.out_private_subnet_ids
   eks_federated_role_name = var.iam_federated_role_name
   eks_cluster_name        = var.eks_cluster_name
@@ -44,6 +45,7 @@ module "sonarqube" {
   sonarqube_vpc_id              = module.network.out_vpc_id
   sonarqube_subnet_ids          = module.network.out_private_subnet_ids
   sonarqube_subnets_cidr_blocks = module.network.out_private_subnets_cidr_blocks
+  sonarqube_efs_sg_id           = module.kubernetes.out_efs_sg_id
   sonarqube_ami_id              = var.sonarqube_ami_id
   sonarqube_username            = var.sonarqube_rds_username
   sonarqube_availability_zones  = var.vpc_availability_zones

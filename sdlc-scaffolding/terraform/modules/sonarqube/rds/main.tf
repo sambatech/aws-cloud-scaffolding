@@ -48,7 +48,7 @@ resource "aws_rds_cluster" "database" {
 
   serverlessv2_scaling_configuration {
     min_capacity = 0.5
-    max_capacity = 2.0
+    max_capacity = 3.0
   }
 
   depends_on = [ 
@@ -58,7 +58,7 @@ resource "aws_rds_cluster" "database" {
 
 resource "aws_rds_cluster_instance" "instance" {
   count                        = 2
-  identifier                   = "sonarqube-node-${count.index}"
+  identifier                   = "sonarqube-db-${count.index}"
   instance_class               = "db.serverless"
   cluster_identifier           = aws_rds_cluster.database.id
   engine                       = aws_rds_cluster.database.engine

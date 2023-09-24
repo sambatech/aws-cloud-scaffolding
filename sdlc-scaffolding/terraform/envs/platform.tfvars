@@ -4,7 +4,9 @@ aws_profile              = "platform"
 ################################
 # IAM
 ################################
-iam_federated_role_name   = "AWSReservedSSO_AdministratorAccess_d856cb421c5265d1"
+# AWS EKS aws-auth config-map don't recognize the full arn role name, so we need to use the short name
+# arn:aws:iam::021847444320:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_d856cb421c5265d1
+iam_federated_role_name  = "arn:aws:iam::021847444320:role/AWSReservedSSO_AdministratorAccess_d856cb421c5265d1"
 
 ################################
 # VPC
@@ -18,7 +20,7 @@ vpc_availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
 ################################
 # EKS
 ################################
-eks_cluster_name = "platform_cluster"
+eks_cluster_name = "platform-eks"
 
 ################################
 # VPN
