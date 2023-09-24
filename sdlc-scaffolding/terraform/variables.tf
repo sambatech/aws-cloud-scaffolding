@@ -16,6 +16,11 @@ variable iam_federated_role_name {
 ################################
 # VPC
 ################################
+variable vpc_creation_enabled {
+  description = "value to determine if the VPC should be created"
+  default     = true
+}
+
 variable vpc_cidr_block {
   description = "The CIDR block for the VPC to use"
 }

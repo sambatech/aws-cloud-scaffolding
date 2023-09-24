@@ -1,25 +1,48 @@
-locals {
-  iam_role_policy_prefix = "Platform"
-}
-
 data "aws_caller_identity" "current" {}
 
-data "aws_iam_role" "federated_role" {
-  name = var.eks_federated_role_name
+resource "aws_security_group" "remote_access" {
+  name_prefix = "nodes-remote-access"
+  description = "Allow remote SSH access"
+  vpc_id      = var.eks_vpc_id
+
+  ingress {
+    description = "SSH access"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/8"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+}
+
+resource "tls_private_key" "this" {
+  algorithm = "RSA"
+}
+
+resource "aws_key_pair" "this" {
+  key_name_prefix = "eks-nodes-key-pair"
+  public_key      = tls_private_key.this.public_key_openssh
 }
 
 data "aws_eks_cluster" "default" {
-  name = try(module.eks.cluster_name, module.eks.cluster_id)
+  name  = coalesce(module.eks.cluster_id, var.eks_cluster_name)
 }
 
 data "aws_eks_cluster_auth" "default" {
-  name = try(module.eks.cluster_name, module.eks.cluster_id)
+  name  = coalesce(module.eks.cluster_id, var.eks_cluster_name)
 }
 
 provider "kubernetes" {
-  host                   = data.aws_eks_cluster.default.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.default.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.default.token
+  host                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  cluster_ca_certificate = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  token                  = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
 }
 
 module "eks" {
@@ -62,60 +85,43 @@ module "eks" {
     }
   }
 
-  # Extend cluster security group rules
-  cluster_security_group_additional_rules = {
-    ingress_nodes_ephemeral_ports_tcp = {
-      description                    = "Nodes on ephemeral ports"
-      protocol                       = "tcp"
-      from_port                      = 1025
-      to_port                        = 65535
-      type                           = "ingress"
-      source_node_security_group     = true
-    }
-    egress_nodes_ephemeral_ports_tcp = {
-      description                    = "To node 1025-65535"
-      protocol                       = "tcp"
-      from_port                      = 1025
-      to_port                        = 65535
-      type                           = "egress"
-      source_node_security_group     = true
-    }
-  }
-
-  # Extend node-to-node security group rules
-  node_security_group_additional_rules = {
-    ingress_self_all   = {
-      description      = "Node to node all ports/protocols"
-      protocol         = "-1"
-      from_port        = 0
-      to_port          = 0
-      type             = "ingress"
-      self             = true
-    }
-    egress_all         = {
-      description      = "Node all egress"
-      protocol         = "-1"
-      from_port        = 0
-      to_port          = 0
-      type             = "egress"
-      cidr_blocks      = ["0.0.0.0/0"]
-      ipv6_cidr_blocks = ["::/0"]
-    }
-  }
-
   ##############################################
   # EKS Managed Node Group(s)
   ##############################################
   eks_managed_node_group_defaults = {
-    instance_types = ["t3a.micro"]
+    ami_type                   = "AL2_x86_64"
+    instance_types             = ["t3a.micro"]
+
+    # We are using the IRSA created below for permissions
+    # However, we have to deploy with the policy attached FIRST (when creating a fresh cluster)
+    # and then turn this off after the cluster/node group is created. Without this initial policy,
+    # the VPC CNI fails to assign IPs and nodes cannot join the cluster
+    # See https://github.com/aws/containers-roadmap/issues/1666 for more context
+    iam_role_attach_cni_policy = true
   }
 
   eks_managed_node_groups = {
     sonarqube = {
-      # list of pods per instance type: https://github.com/awslabs/amazon-eks-ami/blob/master/files/eni-max-pods.txt
-      # or run: kubectl get node -o yaml | grep pods
+      iam_role_attach_cni_policy = true
+
       instance_types = ["t3a.large"]
-      disk_size      = 50
+      disk_size      = 20
+
+      min_size     = 1
+      max_size     = 1
+      desired_size = 1
+
+
+      update_config = {
+        max_unavailable = 1
+      }
+    }
+
+    harbor = {
+      iam_role_attach_cni_policy = true
+
+      instance_types = ["t3a.large"]
+      disk_size      = 20
 
       min_size     = 1
       max_size     = 1
@@ -132,8 +138,8 @@ module "eks" {
 
   aws_auth_roles = [
     {
-      rolearn  = data.aws_iam_role.federated_role.arn
-      username = data.aws_iam_role.federated_role.name
+      rolearn  = var.eks_federated_role_name
+      username = "sso_admin_role"
       groups   = ["system:masters"]
     },
   ]
@@ -165,4 +171,16 @@ module "vpc_cni_irsa" {
       namespace_service_accounts = ["kube-system:aws-node"]
     }
   }
+}
+
+module "efs" {
+  source = "./efs-driver"
+
+  eks_vpc_id                             = var.eks_vpc_id
+  eks_vpc_cidr                           = var.eks_vpc_cidr
+  eks_cluster_name                       = var.eks_cluster_name
+  eks_oidc_provider_arn                  = module.eks.oidc_provider_arn
+  eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
+  eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
 }

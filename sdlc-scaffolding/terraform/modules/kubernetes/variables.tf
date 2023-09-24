@@ -1,3 +1,8 @@
+variable create_eks {
+  description = "Create EKS cluster"
+  default     = true
+}
+
 variable eks_cluster_name {
   description = "The name of the EKS cluster"
 }
@@ -8,6 +13,10 @@ variable eks_federated_role_name {
 
 variable eks_vpc_id {
   description = "The VPC reference where the EKS must be created"
+}
+
+variable eks_vpc_cidr {
+  description = "value of the EKS VPC CIDR"
 }
 
 variable eks_subnet_ids {

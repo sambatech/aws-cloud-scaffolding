@@ -1,3 +1,10 @@
+module efs {
+  source = "./efs"
+
+  efs_sg_id      = var.sonarqube_efs_sg_id
+  efs_subnet_ids = var.sonarqube_subnet_ids
+}
+
 module "rds" {
   source = "./rds"
 
