@@ -1,3 +1,7 @@
+variable deploy_efs_filesystem_id {
+    description = "value of the EFS filesystem id"
+}
+
 variable deploy_eks_cluster_endpoint {
     description = "value of the EKS cluster endpoint"
 }

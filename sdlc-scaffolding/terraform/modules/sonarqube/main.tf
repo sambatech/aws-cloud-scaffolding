@@ -11,6 +11,7 @@ module "rds" {
 module "deploy" {
   source = "./deploy"
 
+  deploy_efs_filesystem_id                      = var.sonarqube_efs_filesystem_id
   deploy_eks_cluster_endpoint                   = var.sonarqube_eks_cluster_endpoint
   deploy_eks_cluster_certificate_authority_data = var.sonarqube_eks_cluster_certificate_authority_data
   deploy_eks_cluster_auth_token                 = var.sonarqube_eks_cluster_auth_token

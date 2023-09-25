@@ -39,10 +39,10 @@ spec:
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: efs-sc
+  storageClassName: sonarqube-sc
   csi:
     driver: efs.csi.aws.com
-    volumeHandle: var.deploy_efs_filesystem_id
+    volumeHandle: ${var.deploy_efs_filesystem_id}
 YAML
 
     depends_on = [
@@ -60,7 +60,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: efs-sc
+  storageClassName: sonarqube-sc
   resources:
     requests:
       storage: 64Gi
@@ -164,6 +164,13 @@ spec:
             name: sonarqube-config
         - secretRef:
             name: sonarqube-secret
+        volumeMounts:
+        - name: sonarqube-storage
+          mountPath: "/opt/sonarqube/data/"
+          subPath: data
+        - name: sonarqube-storage
+          mountPath: "/opt/sonarqube/extensions/"
+          subPath: extensions
         resources:
           requests:
             memory: "6144Mi"
@@ -171,11 +178,10 @@ spec:
           limits:
             memory: "7168Mi"
             cpu: "2000m"
-      tolerations:
-      - key: name
-        operator: Equal
-        value: frontend
-        effect: NoSchedule
+      volumes:
+      - name: sonarqube-storage
+        persistentVolumeClaim:
+          claimName: sonarqube-claim
 YAML
 
     depends_on = [

@@ -126,14 +126,6 @@ module "eks" {
       update_config = {
         max_unavailable = 1
       }
-
-      taints = [
-        {
-          key    = "dedicated"
-          value  = "sonarqube"
-          effect = "NO_SCHEDULE"
-        }
-      ]
     }
 
     harbor = {

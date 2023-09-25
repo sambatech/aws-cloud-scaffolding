@@ -25,6 +25,10 @@ variable sonarqube_availability_zones {
     type = list
 }
 
+variable sonarqube_efs_filesystem_id {
+    description = "value of the EFS filesystem id"
+}
+
 variable sonarqube_eks_cluster_endpoint {
     description = "value of the EKS cluster endpoint"
 }
