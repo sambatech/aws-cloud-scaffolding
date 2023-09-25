@@ -59,6 +59,7 @@ module "eks" {
   cluster_endpoint_private_access = true
   create_cni_ipv6_iam_policy      = true
 
+  # https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html
   cluster_addons = {
     coredns = {
       preserve    = true
@@ -83,6 +84,12 @@ module "eks" {
         }
       })
     }
+    aws-ebs-csi-driver = {
+      most_recent = true
+    }
+    aws-efs-csi-driver = {
+      most_recent = true
+    }
   }
 
   ##############################################
@@ -98,12 +105,16 @@ module "eks" {
     # the VPC CNI fails to assign IPs and nodes cannot join the cluster
     # See https://github.com/aws/containers-roadmap/issues/1666 for more context
     iam_role_attach_cni_policy = true
+    iam_role_use_name_prefix = false
+    # Needed by the aws-ebs-csi-driver addon
+    iam_role_additional_policies = {
+      AmazonEBSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+      AmazonEFSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
+    }
   }
 
   eks_managed_node_groups = {
     sonarqube = {
-      iam_role_attach_cni_policy = true
-
       instance_types = ["t3a.large"]
       disk_size      = 20
 
@@ -115,11 +126,17 @@ module "eks" {
       update_config = {
         max_unavailable = 1
       }
+
+      taints = [
+        {
+          key    = "dedicated"
+          value  = "sonarqube"
+          effect = "NO_SCHEDULE"
+        }
+      ]
     }
 
     harbor = {
-      iam_role_attach_cni_policy = true
-
       instance_types = ["t3a.large"]
       disk_size      = 20
 
@@ -174,13 +191,12 @@ module "vpc_cni_irsa" {
 }
 
 module "efs" {
-  source = "./efs-driver"
+  source = "./efs"
 
-  eks_vpc_id                             = var.eks_vpc_id
-  eks_vpc_cidr                           = var.eks_vpc_cidr
-  eks_cluster_name                       = var.eks_cluster_name
-  eks_oidc_provider_arn                  = module.eks.oidc_provider_arn
-  eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
-  eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
-  eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  efs_vpc_id                                 = var.eks_vpc_id
+  efs_vpc_cidr                               = var.eks_vpc_cidr
+  efs_subnet_ids                             = var.eks_subnet_ids
+  efs_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  efs_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  efs_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
 }

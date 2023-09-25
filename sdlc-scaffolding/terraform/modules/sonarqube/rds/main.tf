@@ -6,8 +6,8 @@ resource "random_string" "password" {
 }
 
 resource "aws_security_group" "instance" {
-  vpc_id      = var.rds_vpc_id
   name        = "sgr-sonarqube-cluster"
+  vpc_id      = var.rds_vpc_id
   description = "Allow all local inbound for Postgres"
 
   ingress {
@@ -140,4 +140,22 @@ resource "aws_db_proxy" "cluster_proxy" {
     iam_auth    = "DISABLED"
     secret_arn  = aws_secretsmanager_secret.sonarqube_rds_credentials.arn
   }
+}
+
+resource "aws_db_proxy_default_target_group" "cluster_proxy_target_group" {
+  db_proxy_name = aws_db_proxy.cluster_proxy.name
+
+  connection_pool_config {
+    connection_borrow_timeout    = 120
+    init_query                   = "SET x=1, y=2"
+    max_connections_percent      = 100
+    max_idle_connections_percent = 50
+    session_pinning_filters      = ["EXCLUDE_VARIABLE_SETS"]
+  }
+}
+
+resource "aws_db_proxy_target" "cluster_proxy_target" {
+  db_proxy_name         = aws_db_proxy.cluster_proxy.name
+  db_cluster_identifier = aws_rds_cluster.database.id
+  target_group_name     = aws_db_proxy_default_target_group.cluster_proxy_target_group.name
 }

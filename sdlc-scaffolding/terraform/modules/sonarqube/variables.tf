@@ -25,6 +25,14 @@ variable sonarqube_availability_zones {
     type = list
 }
 
-variable sonarqube_efs_sg_id {
-    description = "value of the SonarQube EFS security group id"
+variable sonarqube_eks_cluster_endpoint {
+    description = "value of the EKS cluster endpoint"
+}
+
+variable sonarqube_eks_cluster_certificate_authority_data {
+    description = "value of the EKS cluster certificate authority data"
+}
+
+variable sonarqube_eks_cluster_auth_token {    
+    description = "value of the EKS cluster auth token"
 }
