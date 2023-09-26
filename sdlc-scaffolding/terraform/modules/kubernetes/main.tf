@@ -106,6 +106,7 @@ module "eks" {
     # See https://github.com/aws/containers-roadmap/issues/1666 for more context
     iam_role_attach_cni_policy = true
     iam_role_use_name_prefix = false
+
     # Needed by the aws-ebs-csi-driver addon
     iam_role_additional_policies = {
       AmazonEBSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
@@ -114,16 +115,25 @@ module "eks" {
   }
 
   eks_managed_node_groups = {
+    # Default node group - as provided by AWS EKS
+    default_node_group = {
+      # By default, the module creates a launch template to ensure tags are propagated to instances, etc.,
+      # so we need to disable it to use the default template provided by the AWS EKS managed node group service
+      use_custom_launch_template = false
+      instance_types = ["t3a.large"]
+      disk_size      = 20
+      min_size       = 1
+      max_size       = 3
+      desired_size   = 1
+    }
+
     sonarqube = {
       instance_types = ["t3a.large"]
       disk_size      = 20
-
-      min_size     = 1
-      max_size     = 1
-      desired_size = 1
-
-
-      update_config = {
+      min_size       = 1
+      max_size       = 1
+      desired_size   = 1
+      update_config  = {
         max_unavailable = 1
       }
     }
@@ -191,4 +201,22 @@ module "efs" {
   efs_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
   efs_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
   efs_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
+}
+
+module "metrics-server" {
+  source = "./metrics-server"
+
+  deploy_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  deploy_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  deploy_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
+}
+
+module "ingress-controller" {
+  source = "./ingress-controller"
+
+  oidc_provider_arn                      = module.eks.oidc_provider_arn
+  eks_cluster_name                       = var.eks_cluster_name
+  eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
 }

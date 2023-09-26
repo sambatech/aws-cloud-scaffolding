@@ -178,6 +178,11 @@ spec:
           limits:
             memory: "7168Mi"
             cpu: "2000m"
+      tolarations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "sonarqube"
+        effect: "NoSchedule"
       volumes:
       - name: sonarqube-storage
         persistentVolumeClaim:
@@ -213,4 +218,34 @@ YAML
     depends_on = [
         kubectl_manifest.sonarqube_deployment
     ]
+}
+
+resource "kubectl_manifest" "sonarqube_ingress" {
+    yaml_body = <<YAML
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sonarqube-ingress
+  namespace: sonarqube
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+    - hosts:
+      - myfancy.domain.com
+      secretName: my-fancy-certs
+  rules:
+  - host: myfancy.domain.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: sonarqube-service
+          servicePort: 9000
+YAML
+
+  depends_on = [
+    kubectl_manifest.sonarqube_service
+  ]
 }
