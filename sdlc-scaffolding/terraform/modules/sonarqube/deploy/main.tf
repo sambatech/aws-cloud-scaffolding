@@ -228,6 +228,11 @@ YAML
     ]
 }
 
+data "aws_acm_certificate" "eks_certificate" {
+  domain    = "sambatech.net"
+  key_types = ["RSA_2048"]
+}
+
 resource "kubectl_manifest" "sonarqube_ingress" {
     yaml_body = <<YAML
 apiVersion: networking.k8s.io/v1
@@ -237,15 +242,27 @@ metadata:
   namespace: sonarqube
   annotations:
     kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/ip-address-type: dualstack
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/load-balancer-name: eks-alb-ingress
     alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
     alb.ingress.kubernetes.io/group.name: 'platform-engineering'
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/ip-address-type: dualstack
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-path: /api/system/status
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/success-codes: '200'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
     alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
     alb.ingress.kubernetes.io/wafv2-acl-arn: '${var.deploy_waf_arn}'
+    alb.ingress.kubernetes.io/certificate-arn: ${data.aws_acm_certificate.eks_certificate.arn}
 spec:
+  ingressClassName: alb
   rules:
   - host: sonar.sambatech.net
     http:
