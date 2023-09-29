@@ -1,3 +1,7 @@
+variable deploy_efs_filesystem_id {
+    description = "value of the EFS filesystem id"
+}
+
 variable deploy_eks_cluster_endpoint {
     description = "value of the EKS cluster endpoint"
 }
@@ -24,4 +28,8 @@ variable deploy_jdbc_hostname {
 
 variable deploy_jdbc_port {
     description = "The jdbc port to use for the SonarQube instance"
+}
+
+variable deploy_waf_arn {
+    description = "value"
 }

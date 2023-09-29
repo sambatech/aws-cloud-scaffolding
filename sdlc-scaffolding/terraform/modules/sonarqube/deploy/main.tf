@@ -39,10 +39,10 @@ spec:
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: efs-sc
+  storageClassName: sonarqube-sc
   csi:
     driver: efs.csi.aws.com
-    volumeHandle: var.deploy_efs_filesystem_id
+    volumeHandle: ${var.deploy_efs_filesystem_id}
 YAML
 
     depends_on = [
@@ -60,7 +60,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: efs-sc
+  storageClassName: sonarqube-sc
   resources:
     requests:
       storage: 64Gi
@@ -92,6 +92,13 @@ YAML
     ]
 }
 
+resource "random_string" "sonar_web_systempasscode" {
+  length   = 32
+  upper    = true
+  numeric  = true
+  special  = false
+}
+
 resource "kubectl_manifest" "sonarqube_secret" {
     yaml_body = <<YAML
 apiVersion: v1
@@ -103,6 +110,7 @@ metadata:
     app: sonarqube
 type: Opaque
 data:
+  SONAR_WEB_SYSTEMPASSCODE: "${base64encode(random_string.sonar_web_systempasscode.result)}"
   SONAR_JDBC_USERNAME: "${base64encode(var.deploy_jdbc_username)}"
   SONAR_JDBC_PASSWORD: "${base64encode(var.deploy_jdbc_password)}"
   SONAR_JDBC_URL: '${base64encode("jdbc:postgresql://${var.deploy_jdbc_hostname}:${var.deploy_jdbc_port}/sonarqube")}'
@@ -164,6 +172,13 @@ spec:
             name: sonarqube-config
         - secretRef:
             name: sonarqube-secret
+        volumeMounts:
+        - name: sonarqube-storage
+          mountPath: "/opt/sonarqube/data/"
+          subPath: data
+        - name: sonarqube-storage
+          mountPath: "/opt/sonarqube/extensions/"
+          subPath: extensions
         resources:
           requests:
             memory: "6144Mi"
@@ -171,11 +186,15 @@ spec:
           limits:
             memory: "7168Mi"
             cpu: "2000m"
-      tolerations:
-      - key: name
-        operator: Equal
-        value: frontend
-        effect: NoSchedule
+      tolarations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "sonarqube"
+        effect: "NoSchedule"
+      volumes:
+      - name: sonarqube-storage
+        persistentVolumeClaim:
+          claimName: sonarqube-claim
 YAML
 
     depends_on = [
@@ -207,4 +226,40 @@ YAML
     depends_on = [
         kubectl_manifest.sonarqube_deployment
     ]
+}
+
+resource "kubectl_manifest" "sonarqube_ingress" {
+    yaml_body = <<YAML
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sonarqube-ingress
+  namespace: sonarqube
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/ip-address-type: dualstack
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/group.name: 'platform-engineering'
+    alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
+    alb.ingress.kubernetes.io/wafv2-acl-arn: '${var.deploy_waf_arn}'
+spec:
+  rules:
+  - host: sonar.sambatech.net
+    http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: sonarqube-service
+            port: 
+              number: 9000
+YAML
+
+  depends_on = [
+    kubectl_manifest.sonarqube_service
+  ]
 }

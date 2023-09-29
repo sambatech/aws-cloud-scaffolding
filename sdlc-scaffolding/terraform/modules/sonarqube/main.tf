@@ -11,9 +11,11 @@ module "rds" {
 module "deploy" {
   source = "./deploy"
 
+  deploy_efs_filesystem_id                      = var.sonarqube_efs_filesystem_id
   deploy_eks_cluster_endpoint                   = var.sonarqube_eks_cluster_endpoint
   deploy_eks_cluster_certificate_authority_data = var.sonarqube_eks_cluster_certificate_authority_data
   deploy_eks_cluster_auth_token                 = var.sonarqube_eks_cluster_auth_token
+  deploy_waf_arn                                = var.sonarqube_waf_arn
   deploy_jdbc_username                          = module.rds.out_database_username
   deploy_jdbc_password                          = module.rds.out_database_password
   deploy_jdbc_hostname                          = module.rds.out_database_hostname

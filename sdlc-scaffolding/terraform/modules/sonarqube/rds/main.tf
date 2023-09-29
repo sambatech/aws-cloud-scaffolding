@@ -85,22 +85,22 @@ resource "aws_secretsmanager_secret_version" "sonarqube_rds_credentials_version"
 EOF
 }
 
-data "aws_iam_policy_document" "secrets_manager_assume_policy" {
+data "aws_iam_policy_document" "rds_proxy_assume_policy" {
   statement {
     actions = ["sts:AssumeRole"]
 
     principals {
       type        = "Service"
-      identifiers = ["secretsmanager.amazonaws.com"]
+      identifiers = ["rds.amazonaws.com"]
     }
 
     effect = "Allow"
   }
 }
 
-resource "aws_iam_role" "sonarqube_secrets_reader_role" {
+resource "aws_iam_role" "rds_proxy_role" {
   name               = "SonarQubeSecretsReaderRole"
-  assume_role_policy = data.aws_iam_policy_document.secrets_manager_assume_policy.json
+  assume_role_policy = data.aws_iam_policy_document.rds_proxy_assume_policy.json
 
   inline_policy {
     name = "sonarqube_secrets_reader_policy"
@@ -130,13 +130,13 @@ resource "aws_db_proxy" "cluster_proxy" {
   engine_family          = "POSTGRESQL"
   idle_client_timeout    = 1800
   require_tls            = true
-  role_arn               = aws_iam_role.sonarqube_secrets_reader_role.arn
+  role_arn               = aws_iam_role.rds_proxy_role.arn
   vpc_subnet_ids         = var.rds_subnet_ids
   vpc_security_group_ids = [aws_security_group.instance.id]
 
   auth {
     auth_scheme = "SECRETS"
-    description = "example"
+    description = "Auth for SonarQube"
     iam_auth    = "DISABLED"
     secret_arn  = aws_secretsmanager_secret.sonarqube_rds_credentials.arn
   }
