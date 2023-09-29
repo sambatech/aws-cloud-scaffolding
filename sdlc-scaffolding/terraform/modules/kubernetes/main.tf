@@ -52,7 +52,7 @@ module "eks" {
   cluster_name                    = var.eks_cluster_name
   vpc_id                          = var.eks_vpc_id
   subnet_ids                      = var.eks_subnet_ids
-  cluster_version                 = "1.27"
+  cluster_version                 = "1.28"
   cluster_ip_family               = "ipv6"
   enable_irsa                     = true
   cluster_endpoint_public_access  = true
@@ -116,7 +116,7 @@ module "eks" {
 
   eks_managed_node_groups = {
     # Default node group - as provided by AWS EKS
-    default_node_group = {
+    default = {
       # By default, the module creates a launch template to ensure tags are propagated to instances, etc.,
       # so we need to disable it to use the default template provided by the AWS EKS managed node group service
       use_custom_launch_template = false
@@ -178,11 +178,12 @@ module "eks" {
 
 module "vpc_cni_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+  version = "~> 5.30"
 
   role_name_prefix      = "VPC-CNI-IRSA"
   attach_vpc_cni_policy = true
   vpc_cni_enable_ipv6   = true
+  vpc_cni_enable_ipv4   = true
 
   oidc_providers = {
     main = {
@@ -214,9 +215,16 @@ module "metrics-server" {
 module "ingress-controller" {
   source = "./ingress-controller"
 
-  oidc_provider_arn                      = module.eks.oidc_provider_arn
+  eks_vpc_id                             = var.eks_vpc_id
   eks_cluster_name                       = var.eks_cluster_name
+  oidc_provider_arn                      = module.eks.oidc_provider_arn
   eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
   eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
   eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
+}
+
+module "waf" {
+  source = "./waf"
+
+  eks_cluster_name                       = var.eks_cluster_name
 }

@@ -29,3 +29,7 @@ variable deploy_jdbc_hostname {
 variable deploy_jdbc_port {
     description = "The jdbc port to use for the SonarQube instance"
 }
+
+variable deploy_waf_arn {
+    description = "value"
+}

@@ -92,6 +92,13 @@ YAML
     ]
 }
 
+resource "random_string" "sonar_web_systempasscode" {
+  length   = 32
+  upper    = true
+  numeric  = true
+  special  = false
+}
+
 resource "kubectl_manifest" "sonarqube_secret" {
     yaml_body = <<YAML
 apiVersion: v1
@@ -103,6 +110,7 @@ metadata:
     app: sonarqube
 type: Opaque
 data:
+  SONAR_WEB_SYSTEMPASSCODE: "${base64encode(random_string.sonar_web_systempasscode.result)}"
   SONAR_JDBC_USERNAME: "${base64encode(var.deploy_jdbc_username)}"
   SONAR_JDBC_PASSWORD: "${base64encode(var.deploy_jdbc_password)}"
   SONAR_JDBC_URL: '${base64encode("jdbc:postgresql://${var.deploy_jdbc_hostname}:${var.deploy_jdbc_port}/sonarqube")}'
@@ -228,21 +236,27 @@ metadata:
   name: sonarqube-ingress
   namespace: sonarqube
   annotations:
-    kubernetes.io/ingress.class: "nginx"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/ip-address-type: dualstack
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/group.name: 'platform-engineering'
+    alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
+    alb.ingress.kubernetes.io/wafv2-acl-arn: '${var.deploy_waf_arn}'
 spec:
-  tls:
-    - hosts:
-      - myfancy.domain.com
-      secretName: my-fancy-certs
   rules:
-  - host: myfancy.domain.com
+  - host: sonar.sambatech.net
     http:
       paths:
       - path: /
+        pathType: ImplementationSpecific
         backend:
-          serviceName: sonarqube-service
-          servicePort: 9000
+          service:
+            name: sonarqube-service
+            port: 
+              number: 9000
 YAML
 
   depends_on = [

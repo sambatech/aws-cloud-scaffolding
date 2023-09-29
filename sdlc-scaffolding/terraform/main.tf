@@ -37,6 +37,8 @@ module "kubernetes" {
   eks_subnet_ids          = module.network.out_private_subnet_ids
   eks_federated_role_name = var.iam_federated_role_name
   eks_cluster_name        = var.eks_cluster_name
+
+  depends_on = [ module.network ]
 }
 
 module "sonarqube" {
@@ -52,4 +54,11 @@ module "sonarqube" {
   sonarqube_ami_id                                 = var.sonarqube_ami_id
   sonarqube_username                               = var.sonarqube_rds_username
   sonarqube_availability_zones                     = var.vpc_availability_zones
+  sonarqube_waf_arn                                = module.kubernetes.out_waf_arn
+
+
+  depends_on = [
+    module.network, 
+    module.kubernetes
+  ]
 }

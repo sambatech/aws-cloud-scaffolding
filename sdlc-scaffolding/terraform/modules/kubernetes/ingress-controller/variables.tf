@@ -2,6 +2,10 @@ variable eks_cluster_name {
     description = "value of the EKS cluster name"
 }
 
+variable eks_vpc_id {
+    description = "value of the EKS VPC ID"
+}
+
 variable oidc_provider_arn {
     description = "value of the EKS OIDC provider ARN"
 }

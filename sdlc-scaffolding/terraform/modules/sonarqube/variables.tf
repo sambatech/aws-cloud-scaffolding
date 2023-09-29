@@ -40,3 +40,7 @@ variable sonarqube_eks_cluster_certificate_authority_data {
 variable sonarqube_eks_cluster_auth_token {    
     description = "value of the EKS cluster auth token"
 }
+
+variable sonarqube_waf_arn {
+    description = "value"
+}
