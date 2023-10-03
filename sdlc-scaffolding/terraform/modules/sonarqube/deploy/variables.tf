@@ -1,5 +1,18 @@
-variable deploy_efs_filesystem_id {
-    description = "value of the EFS filesystem id"
+variable deploy_vpc_id {
+    description = "value of the VPC id"
+}
+
+variable deploy_subnet_ids {
+    description = "value of the VPC subnet ids"
+    type = list
+}
+
+variable deploy_cidr_blocks {
+    description = "value of the VPC cidr blocks"
+}
+
+variable deploy_ipv6_cidr_blocks {
+    description = "value of the VPC ipv6 cidr blocks"
 }
 
 variable deploy_eks_cluster_endpoint {

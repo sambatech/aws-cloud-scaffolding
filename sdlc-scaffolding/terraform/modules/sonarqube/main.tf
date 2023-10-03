@@ -3,7 +3,8 @@ module "rds" {
 
   rds_vpc_id              = var.sonarqube_vpc_id
   rds_subnet_ids          = var.sonarqube_subnet_ids
-  rds_subnets_cidr_blocks = var.sonarqube_subnets_cidr_blocks
+  rds_subnets_cidr_blocks = var.sonarqube_cidr_blocks
+  rds_ipv6_cidr_blocks    = var.sonarqube_ipv6_cidr_blocks
   rds_username            = var.sonarqube_username
   rds_availability_zones  = var.sonarqube_availability_zones
 }
@@ -11,7 +12,10 @@ module "rds" {
 module "deploy" {
   source = "./deploy"
 
-  deploy_efs_filesystem_id                      = var.sonarqube_efs_filesystem_id
+  deploy_vpc_id                                 = var.sonarqube_vpc_id
+  deploy_subnet_ids                             = var.sonarqube_subnet_ids
+  deploy_cidr_blocks                            = var.sonarqube_cidr_blocks
+  deploy_ipv6_cidr_blocks                       = var.sonarqube_ipv6_cidr_blocks
   deploy_eks_cluster_endpoint                   = var.sonarqube_eks_cluster_endpoint
   deploy_eks_cluster_certificate_authority_data = var.sonarqube_eks_cluster_certificate_authority_data
   deploy_eks_cluster_auth_token                 = var.sonarqube_eks_cluster_auth_token

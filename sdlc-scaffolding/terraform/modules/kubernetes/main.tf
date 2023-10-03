@@ -137,19 +137,6 @@ module "eks" {
         max_unavailable = 1
       }
     }
-
-    harbor = {
-      instance_types = ["t3a.large"]
-      disk_size      = 20
-
-      min_size     = 1
-      max_size     = 1
-      desired_size = 1
-
-      update_config = {
-        max_unavailable = 1
-      }
-    }
   }
 
   # aws-auth configmap

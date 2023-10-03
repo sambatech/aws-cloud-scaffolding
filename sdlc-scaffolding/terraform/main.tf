@@ -45,8 +45,8 @@ module "sonarqube" {
 
   sonarqube_vpc_id                                 = module.network.out_vpc_id
   sonarqube_subnet_ids                             = module.network.out_private_subnet_ids
-  sonarqube_subnets_cidr_blocks                    = module.network.out_private_subnets_cidr_blocks
-  sonarqube_efs_filesystem_id                      = module.kubernetes.out_efs_filesystem_id  
+  sonarqube_cidr_blocks                            = module.network.out_private_subnets_cidr_blocks
+  sonarqube_ipv6_cidr_blocks                       = module.network.out_private_subnets_ipv6_cidr_blocks
   sonarqube_eks_cluster_endpoint                   = module.kubernetes.out_eks_cluster_endpoint
   sonarqube_eks_cluster_certificate_authority_data = module.kubernetes.out_eks_cluster_certificate_authority_data
   sonarqube_eks_cluster_auth_token                 = module.kubernetes.out_eks_cluster_auth_token

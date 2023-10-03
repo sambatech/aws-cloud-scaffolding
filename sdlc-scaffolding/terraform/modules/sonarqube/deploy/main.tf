@@ -16,6 +16,62 @@ provider "kubectl" {
   load_config_file       = false
 }
 
+resource "aws_security_group" "sonarqube_efs_sg" {
+  name        = "sonarqube-efs-sg"
+  description = "Allow NFS inbound traffic"
+  vpc_id      = var.deploy_vpc_id
+
+  ingress {
+    description      = "NFS from VPC"
+    from_port        = 2049
+    to_port          = 2049
+    protocol         = "tcp"
+    cidr_blocks      = var.deploy_cidr_blocks
+    ipv6_cidr_blocks = var.deploy_ipv6_cidr_blocks
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+}
+
+resource "aws_efs_file_system" "sonarqube_efs" {
+  creation_token   = "sonarqube-efs"
+  throughput_mode  = "bursting"
+  performance_mode = "generalPurpose"
+
+  tags = {
+    Name = "sonarqube-efs"
+  }
+}
+
+resource "aws_efs_access_point" "sonarqube_access_point" {
+  file_system_id = aws_efs_file_system.sonarqube_efs.id
+}
+
+resource "aws_efs_mount_target" "sonarqube_efs_mount_target" {
+  count           = length(var.deploy_subnet_ids)
+  subnet_id       = var.deploy_subnet_ids[count.index]
+  security_groups = [aws_security_group.sonarqube_efs_sg.id]
+  file_system_id  = aws_efs_file_system.sonarqube_efs.id
+}
+
+resource "kubectl_manifest" "sonarqube_storage_class" {
+    yaml_body = <<YAML
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: sonarqube-sc
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+YAML
+}
+
 resource "kubectl_manifest" "sonarqube_namespace" {
     yaml_body = <<YAML
 apiVersion: v1
@@ -37,12 +93,12 @@ spec:
     storage: 64Gi
   volumeMode: Filesystem
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   storageClassName: sonarqube-sc
   csi:
     driver: efs.csi.aws.com
-    volumeHandle: ${var.deploy_efs_filesystem_id}
+    volumeHandle: "${aws_efs_file_system.sonarqube_efs.id}::${aws_efs_access_point.sonarqube_access_point.id}"
 YAML
 
     depends_on = [
@@ -59,7 +115,7 @@ metadata:
   namespace: sonarqube
 spec:
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   storageClassName: sonarqube-sc
   resources:
     requests:
@@ -174,10 +230,10 @@ spec:
             name: sonarqube-secret
         volumeMounts:
         - name: sonarqube-storage
-          mountPath: "/opt/sonarqube/data/"
+          mountPath: "/var/sonarqube/data/"
           subPath: data
         - name: sonarqube-storage
-          mountPath: "/opt/sonarqube/extensions/"
+          mountPath: "/var/sonarqube/extensions/"
           subPath: extensions
         resources:
           requests:
@@ -186,11 +242,6 @@ spec:
           limits:
             memory: "7168Mi"
             cpu: "2000m"
-      tolarations:
-      - key: "dedicated"
-        operator: "Equal"
-        value: "sonarqube"
-        effect: "NoSchedule"
       volumes:
       - name: sonarqube-storage
         persistentVolumeClaim:
