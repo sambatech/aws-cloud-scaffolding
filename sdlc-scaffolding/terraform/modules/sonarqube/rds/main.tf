@@ -37,6 +37,7 @@ resource "aws_rds_cluster" "database" {
   engine                 = "aurora-postgresql"
   engine_mode            = "provisioned"
   engine_version         = "15"
+  network_type           = "DUAL"
 
   skip_final_snapshot    = true
   db_subnet_group_name   = aws_db_subnet_group.default.name

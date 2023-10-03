@@ -196,9 +196,12 @@ module "vpc_cni_irsa" {
 module "efs" {
   source = "./efs"
 
+  oidc_provider_arn                          = module.eks.oidc_provider_arn
+
   efs_vpc_id                                 = var.eks_vpc_id
-  efs_vpc_cidr                               = var.eks_vpc_cidr
   efs_subnet_ids                             = var.eks_subnet_ids
+  efs_cidr_blocks                            = var.eks_cidr_blocks
+  efs_ipv6_cidr_blocks                       = var.eks_ipv6_cidr_blocks
   efs_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
   efs_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
   efs_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
