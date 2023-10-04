@@ -7,14 +7,23 @@ resource "random_string" "password" {
 
 resource "aws_security_group" "instance" {
   name        = "sgr-sonarqube-cluster"
-  vpc_id      = var.rds_vpc_id
   description = "Allow all local inbound for Postgres"
+  vpc_id      = var.rds_vpc_id
 
   ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = var.rds_subnets_cidr_blocks
+    from_port        = 5432
+    to_port          = 5432
+    protocol         = "tcp"
+    cidr_blocks      = var.rds_subnets_cidr_blocks
+    ipv6_cidr_blocks = var.rds_ipv6_cidr_blocks
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 
   lifecycle {
@@ -37,6 +46,7 @@ resource "aws_rds_cluster" "database" {
   engine                 = "aurora-postgresql"
   engine_mode            = "provisioned"
   engine_version         = "15"
+  network_type           = "DUAL"
 
   skip_final_snapshot    = true
   db_subnet_group_name   = aws_db_subnet_group.default.name

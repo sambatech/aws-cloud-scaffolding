@@ -15,18 +15,19 @@ variable sonarqube_subnet_ids {
     type = list
 }
 
-variable sonarqube_subnets_cidr_blocks {
+variable sonarqube_cidr_blocks {
     description = "value of the SonarQube subnet cidr blocks"
+    type = list
+}
+
+variable sonarqube_ipv6_cidr_blocks {
+    description = "value of the SonarQube subnet ipv6 cidr blocks"
     type = list
 }
 
 variable sonarqube_availability_zones {
     description = "value of the SonarQube availability zones"
     type = list
-}
-
-variable sonarqube_efs_filesystem_id {
-    description = "value of the EFS filesystem id"
 }
 
 variable sonarqube_eks_cluster_endpoint {

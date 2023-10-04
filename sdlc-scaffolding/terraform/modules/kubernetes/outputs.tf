@@ -1,7 +1,3 @@
-output "out_efs_filesystem_id" {
-    value = module.efs.out_efs_filesystem_id
-}
-
 output out_eks_cluster_endpoint {
     value = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
 }

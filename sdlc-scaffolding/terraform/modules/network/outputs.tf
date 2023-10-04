@@ -18,6 +18,10 @@ output "out_private_subnets_cidr_blocks" {
   value = module.vpc.private_subnets_cidr_blocks
 }
 
+output "out_private_subnets_ipv6_cidr_blocks" {
+  value = module.vpc.private_subnets_ipv6_cidr_blocks
+}
+
 output "out_availability_zones" {
   value = var.vpc_availability_zones
 }
