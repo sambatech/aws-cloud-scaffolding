@@ -218,3 +218,13 @@ module "waf" {
 
   eks_cluster_name                       = var.eks_cluster_name
 }
+
+module "debugger" {
+  source = "./debugger"
+
+  aws_profile                                     = var.aws_profile
+  registry_url                                    = var.eks_registry_url
+  debugger_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  debugger_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  debugger_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
+}

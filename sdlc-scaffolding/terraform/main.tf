@@ -18,6 +18,10 @@ provider "aws" {
   region  = var.aws_region
 }
 
+module "registry" {
+  source = "./modules/registry"
+}
+
 module "network" {
   source = "./modules/network"
 
@@ -32,12 +36,14 @@ module "network" {
 module "kubernetes" {
   source = "./modules/kubernetes"
 
+  aws_profile             = var.aws_profile
   eks_vpc_id              = module.network.out_vpc_id
   eks_subnet_ids          = module.network.out_private_subnet_ids
   eks_cidr_blocks         = module.network.out_private_subnets_cidr_blocks
   eks_ipv6_cidr_blocks    = module.network.out_private_subnets_ipv6_cidr_blocks
   eks_federated_role_name = var.iam_federated_role_name
   eks_cluster_name        = var.eks_cluster_name
+  eks_registry_url        = module.registry.out_registry_url
 }
 
 module "sonarqube" {

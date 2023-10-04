@@ -1,6 +1,5 @@
-variable create_eks {
-  description = "Create EKS cluster"
-  default     = true
+variable aws_profile {
+  description = "The AWS profile to use"
 }
 
 variable eks_cluster_name {
@@ -28,4 +27,8 @@ variable eks_cidr_blocks {
 variable eks_ipv6_cidr_blocks {
   description = "value of the EKS cluster ipv6 CIDR blocks"
   type        = list
+}
+
+variable eks_registry_url {
+  description = "The URL of the ECR registry"
 }
