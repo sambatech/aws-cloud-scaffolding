@@ -16,6 +16,10 @@ provider "kubectl" {
   load_config_file       = false
 }
 
+locals {
+  force_new = true
+}
+
 resource "aws_security_group" "sonarqube_efs_sg" {
   name        = "sonarqube-efs-sg"
   description = "Allow NFS inbound traffic"
@@ -248,6 +252,8 @@ spec:
           claimName: sonarqube-claim
 YAML
 
+    wait_for_rollout = false
+
     depends_on = [
         kubectl_manifest.sonarqube_namespace,
         kubectl_manifest.sonarqube_persistent_volume,
@@ -311,7 +317,7 @@ metadata:
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
     alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
     alb.ingress.kubernetes.io/wafv2-acl-arn: '${var.deploy_waf_arn}'
-    alb.ingress.kubernetes.io/certificate-arn: ${data.aws_acm_certificate.eks_certificate.arn}
+    alb.ingress.kubernetes.io/certificate-arn: '${data.aws_acm_certificate.eks_certificate.arn}'
 spec:
   ingressClassName: alb
   rules:

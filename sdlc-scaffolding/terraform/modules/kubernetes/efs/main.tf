@@ -38,7 +38,7 @@ data "aws_iam_policy_document" "assume_role" {
         }
 
         condition {
-            test     = "StringEquals"
+            test     = "StringLike"
             variable = "oidc.eks.${data.aws_region.current.name}.amazonaws.com/id/${substr(var.oidc_provider_arn, -32, -1)}:aud"
             values = ["sts.amazonaws.com"]
         }
@@ -87,36 +87,4 @@ metadata:
   annotations:
     eks.amazonaws.com/role-arn: ${aws_iam_role.eks_efs_csi_driver_role.arn}
 YAML
-}
-
-resource "helm_release" "aws_efs_csi_driver_release" {
-  name       = "aws-efs-csi-driver"
-  chart      = "aws-efs-csi-driver"
-  repository = "https://kubernetes-sigs.github.io/aws-efs-csi-driver/"
-  namespace  = "kube-system"
-
-  set {
-    name  = "image.repository"
-    value = "602401143452.dkr.ecr.us-east-1.amazonaws.com/eks/aws-efs-csi-driver"
-  }
-
-  set {
-    name  = "controller.serviceAccount.create"
-    value = false
-  }
-
-  set {
-    name  = "controller.serviceAccount.name"
-    value = "efs-csi-controller-sa"
-  }
-
-  set {
-    name  = "node.serviceAccount.create"
-    value = false
-  }
-
-  set {
-    name  = "node.serviceAccount.name"
-    value = "efs-csi-node-sa"
-  }
 }

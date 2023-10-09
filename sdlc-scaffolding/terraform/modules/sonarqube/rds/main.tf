@@ -1,3 +1,7 @@
+data "aws_region" "current" {}
+
+data "aws_caller_identity" "current" {}
+
 resource "random_string" "password" {
   length   = 32
   upper    = true
@@ -32,8 +36,9 @@ resource "aws_security_group" "instance" {
 }
 
 resource "aws_db_subnet_group" "default" {
-  name       = "sonarqube-subnet-group"
-  subnet_ids = var.rds_subnet_ids
+  name_prefix = "sonarqube-"
+  description = "SonarQube RDS Subnet Group"
+  subnet_ids  = var.rds_subnet_ids
 
   tags = {
     Name = "sonarqube-subnet-group"
@@ -93,79 +98,4 @@ resource "aws_secretsmanager_secret_version" "sonarqube_rds_credentials_version"
     "password": "${aws_rds_cluster.database.master_password}"
    }
 EOF
-}
-
-data "aws_iam_policy_document" "rds_proxy_assume_policy" {
-  statement {
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["rds.amazonaws.com"]
-    }
-
-    effect = "Allow"
-  }
-}
-
-resource "aws_iam_role" "rds_proxy_role" {
-  name               = "SonarQubeSecretsReaderRole"
-  assume_role_policy = data.aws_iam_policy_document.rds_proxy_assume_policy.json
-
-  inline_policy {
-    name = "sonarqube_secrets_reader_policy"
-
-    policy = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          Action: [
-            "secretsmanager:GetResourcePolicy",
-            "secretsmanager:GetSecretValue",
-            "secretsmanager:DescribeSecret",
-            "secretsmanager:ListSecrets",
-            "secretsmanager:ListSecretVersionIds"
-          ]
-          Effect   = "Allow"
-          Resource = aws_secretsmanager_secret.sonarqube_rds_credentials.arn
-        },
-      ]
-    })
-  }
-}
-
-resource "aws_db_proxy" "cluster_proxy" {
-  name                   = "sonarqubeproxy"
-  debug_logging          = false
-  engine_family          = "POSTGRESQL"
-  idle_client_timeout    = 1800
-  require_tls            = true
-  role_arn               = aws_iam_role.rds_proxy_role.arn
-  vpc_subnet_ids         = var.rds_subnet_ids
-  vpc_security_group_ids = [aws_security_group.instance.id]
-
-  auth {
-    auth_scheme = "SECRETS"
-    description = "Auth for SonarQube"
-    iam_auth    = "DISABLED"
-    secret_arn  = aws_secretsmanager_secret.sonarqube_rds_credentials.arn
-  }
-}
-
-resource "aws_db_proxy_default_target_group" "cluster_proxy_target_group" {
-  db_proxy_name = aws_db_proxy.cluster_proxy.name
-
-  connection_pool_config {
-    connection_borrow_timeout    = 120
-    init_query                   = "SET x=1, y=2"
-    max_connections_percent      = 100
-    max_idle_connections_percent = 50
-    session_pinning_filters      = ["EXCLUDE_VARIABLE_SETS"]
-  }
-}
-
-resource "aws_db_proxy_target" "cluster_proxy_target" {
-  db_proxy_name         = aws_db_proxy.cluster_proxy.name
-  db_cluster_identifier = aws_rds_cluster.database.id
-  target_group_name     = aws_db_proxy_default_target_group.cluster_proxy_target_group.name
 }
