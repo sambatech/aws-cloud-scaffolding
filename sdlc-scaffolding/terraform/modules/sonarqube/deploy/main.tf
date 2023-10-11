@@ -286,8 +286,9 @@ YAML
 }
 
 data "aws_acm_certificate" "eks_certificate" {
-  domain    = "sambatech.net"
-  key_types = ["RSA_2048"]
+  domain      = "sambatech.net"
+  key_types   = ["RSA_2048"]
+  most_recent = true
 }
 
 resource "kubectl_manifest" "sonarqube_ingress" {

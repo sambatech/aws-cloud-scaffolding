@@ -46,9 +46,9 @@ resource "aws_iam_role_policy_attachment" "role_policy_attachment" {
 module "ecr" {
   source = "terraform-aws-modules/ecr/aws"
 
-  repository_name = "platform-engineering"
-
+  repository_name                   = "platform-engineering"
   repository_read_write_access_arns = [aws_iam_role.ecr_allow_pushpull_role.arn]
+  repository_force_delete           = true
 
   repository_lifecycle_policy = jsonencode({
     rules = [
