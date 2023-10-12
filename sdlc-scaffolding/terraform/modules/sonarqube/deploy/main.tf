@@ -18,6 +18,8 @@ provider "kubectl" {
 
 locals {
   force_new = true
+  sonar_host = "sonar.sambatech.net"
+  sonar_host_url = "https://${local.sonar_host}"
 }
 
 resource "aws_security_group" "sonarqube_efs_sg" {
@@ -274,8 +276,9 @@ metadata:
     app: sonarqube
 spec:
   ports:
-  - port: 9000
-    name: sonarqube
+  - name: http
+    port: 9000
+    targetPort: 9000
   selector:
     app: sonarqube
 YAML
@@ -299,7 +302,6 @@ metadata:
   name: sonarqube-ingress
   namespace: sonarqube
   annotations:
-    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/load-balancer-name: eks-alb-ingress
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
@@ -322,10 +324,10 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-  - host: sonar.sambatech.net
+  - host: ${local.sonar_host}
     http:
       paths:
-      - path: /
+      - path: /*
         pathType: ImplementationSpecific
         backend:
           service:
