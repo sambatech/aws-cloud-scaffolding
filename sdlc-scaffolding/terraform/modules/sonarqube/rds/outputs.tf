@@ -7,9 +7,9 @@ output out_database_password {
 }
 
 output out_database_hostname {
-  value     = aws_db_proxy.cluster_proxy.endpoint
+  value     = one([for instance in aws_rds_cluster_instance.instance: instance.endpoint if instance.writer])
 }
 
 output out_database_port {
-  value     = aws_db_proxy_target.cluster_proxy_target.port
+  value     = aws_rds_cluster_instance.instance.0.port
 }

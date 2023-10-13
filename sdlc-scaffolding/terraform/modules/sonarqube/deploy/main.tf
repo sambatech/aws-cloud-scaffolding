@@ -16,6 +16,12 @@ provider "kubectl" {
   load_config_file       = false
 }
 
+locals {
+  force_new = true
+  sonar_host = "sonar.sambatech.net"
+  sonar_host_url = "https://${local.sonar_host}"
+}
+
 resource "aws_security_group" "sonarqube_efs_sg" {
   name        = "sonarqube-efs-sg"
   description = "Allow NFS inbound traffic"
@@ -198,6 +204,11 @@ spec:
       labels:
         app: sonarqube
     spec:
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "sonarqube"
+        effect: "NoSchedule"
       initContainers:
       - name: init-vm
         image: busybox
@@ -248,6 +259,8 @@ spec:
           claimName: sonarqube-claim
 YAML
 
+    wait_for_rollout = false
+
     depends_on = [
         kubectl_manifest.sonarqube_namespace,
         kubectl_manifest.sonarqube_persistent_volume,
@@ -268,8 +281,9 @@ metadata:
     app: sonarqube
 spec:
   ports:
-  - port: 9000
-    name: sonarqube
+  - name: http
+    port: 9000
+    targetPort: 9000
   selector:
     app: sonarqube
 YAML
@@ -280,8 +294,9 @@ YAML
 }
 
 data "aws_acm_certificate" "eks_certificate" {
-  domain    = "sambatech.net"
-  key_types = ["RSA_2048"]
+  domain      = "sambatech.net"
+  key_types   = ["RSA_2048"]
+  most_recent = true
 }
 
 resource "kubectl_manifest" "sonarqube_ingress" {
@@ -292,7 +307,6 @@ metadata:
   name: sonarqube-ingress
   namespace: sonarqube
   annotations:
-    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/load-balancer-name: eks-alb-ingress
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
@@ -311,14 +325,14 @@ metadata:
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
     alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
     alb.ingress.kubernetes.io/wafv2-acl-arn: '${var.deploy_waf_arn}'
-    alb.ingress.kubernetes.io/certificate-arn: ${data.aws_acm_certificate.eks_certificate.arn}
+    alb.ingress.kubernetes.io/certificate-arn: '${data.aws_acm_certificate.eks_certificate.arn}'
 spec:
   ingressClassName: alb
   rules:
-  - host: sonar.sambatech.net
+  - host: ${local.sonar_host}
     http:
       paths:
-      - path: /
+      - path: /*
         pathType: ImplementationSpecific
         backend:
           service:
