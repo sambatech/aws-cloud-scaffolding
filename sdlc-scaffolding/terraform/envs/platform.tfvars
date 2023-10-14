@@ -20,17 +20,20 @@ vpc_availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
 ################################
 # EKS
 ################################
-eks_cluster_name = "platform-eks"
+eks_cluster_name       = "platform"
 
 ################################
-# VPN
+# ALB
 ################################
-# To use this AMI you need to accept the Marketplace terms in console
-vpn_ami_id         = "ami-0f95ee6f985388d58"
-vpn_username       = "openvpn-sambatech-user"
+load_balancer_name     = "platform"
 
 ################################
 # SOANRQUBEs
 ################################
 sonarqube_ami_id       = "ami-0eaf46e514bf33723"
 sonarqube_rds_username = "sonarqube"
+
+################################
+# KEYCLOAK
+################################
+keycloak_rds_username  = "keycloak"

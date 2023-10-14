@@ -307,7 +307,7 @@ metadata:
   name: sonarqube-ingress
   namespace: sonarqube
   annotations:
-    alb.ingress.kubernetes.io/load-balancer-name: eks-alb-ingress
+    alb.ingress.kubernetes.io/load-balancer-name: ${var.deploy_alb_name}
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: '443'

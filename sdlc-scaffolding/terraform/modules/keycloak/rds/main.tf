@@ -10,7 +10,7 @@ resource "random_string" "password" {
 }
 
 resource "aws_security_group" "instance" {
-  name        = "sgr-sonarqube-cluster"
+  name        = "sgr-keycloak-cluster"
   description = "Allow all local inbound for Postgres"
   vpc_id      = var.rds_vpc_id
 
@@ -36,18 +36,18 @@ resource "aws_security_group" "instance" {
 }
 
 resource "aws_db_subnet_group" "default" {
-  name_prefix = "sonarqube-"
-  description = "SonarQube RDS Subnet Group"
+  name_prefix = "keycloak-"
+  description = "keycloak RDS Subnet Group"
   subnet_ids  = var.rds_subnet_ids
 
   tags = {
-    Name = "sonarqube-subnet-group"
+    Name = "keycloak-subnet-group"
   }
 }
 
 resource "aws_rds_cluster" "database" {
-  cluster_identifier     = "sonarqube-cluster"
-  database_name          = "sonarqube"
+  cluster_identifier     = "keycloak-cluster"
+  database_name          = "keycloak"
   engine                 = "aurora-postgresql"
   engine_mode            = "provisioned"
   engine_version         = "15"
@@ -73,7 +73,7 @@ resource "aws_rds_cluster" "database" {
 
 resource "aws_rds_cluster_instance" "instance" {
   count                        = 2
-  identifier                   = "sonarqube-db-${count.index}"
+  identifier                   = "keycloak-db-${count.index}"
   instance_class               = "db.serverless"
   cluster_identifier           = aws_rds_cluster.database.id
   engine                       = aws_rds_cluster.database.engine
@@ -91,13 +91,13 @@ resource "time_static" "tag" {
   }
 }
 
-resource "aws_secretsmanager_secret" "sonarqube_rds_credentials" {
-   name                    = "/platform/sonarqube/rds/credentials/${time_static.tag.unix}"
+resource "aws_secretsmanager_secret" "keycloak_rds_credentials" {
+   name                    = "/platform/keycloak/rds/credentials/${time_static.tag.unix}"
    recovery_window_in_days = 0
 }
 
-resource "aws_secretsmanager_secret_version" "sonarqube_rds_credentials_version" {
-  secret_id = aws_secretsmanager_secret.sonarqube_rds_credentials.id
+resource "aws_secretsmanager_secret_version" "keycloak_rds_credentials_version" {
+  secret_id = aws_secretsmanager_secret.keycloak_rds_credentials.id
   secret_string = <<EOF
    {
     "username": "${aws_rds_cluster.database.master_username}",

@@ -4,7 +4,7 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 4.0"
 
-  name = "plat-engineering-vpc"
+  name = "platform"
   cidr = var.vpc_cidr_block
 
   azs             = var.vpc_availability_zones

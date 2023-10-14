@@ -48,14 +48,11 @@ variable eks_cluster_name {
 }
 
 ################################
-# VPN
+# ALB
 ################################
-variable vpn_ami_id {
-  description = "AWS AMI IDs for OpenVPN images"
-}
-
-variable vpn_username {
-  description = "Username used to enter the VPN Console configuration"
+variable load_balancer_name {
+  description = "The name of the load balancer"
+  default     = "eks-alb-ingress"
 }
 
 ################################
@@ -63,3 +60,10 @@ variable vpn_username {
 ################################
 variable sonarqube_ami_id {}
 variable sonarqube_rds_username {}
+
+################################
+# KEYCLOAK
+################################
+variable keycloak_rds_username {
+  description = "The username for the RDS instance"
+}

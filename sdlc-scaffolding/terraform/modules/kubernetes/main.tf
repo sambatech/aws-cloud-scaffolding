@@ -1,7 +1,3 @@
-locals {
-  kubeconfig_filename = pathexpand("~/.kube/${var.eks_cluster_name}")
-}
-
 data "aws_caller_identity" "current" {}
 
 resource "aws_security_group" "remote_access" {
@@ -53,15 +49,15 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 19.16"
 
-  cluster_name                    = var.eks_cluster_name
-  vpc_id                          = var.eks_vpc_id
-  subnet_ids                      = var.eks_subnet_ids
-  cluster_version                 = "1.28"
-  cluster_ip_family               = "ipv6"
-  enable_irsa                     = true
-  cluster_endpoint_public_access  = true
-  cluster_endpoint_private_access = true
-  create_cni_ipv6_iam_policy      = true
+  cluster_name                     = var.eks_cluster_name
+  vpc_id                           = var.eks_vpc_id
+  subnet_ids                       = var.eks_subnet_ids
+  cluster_version                  = "1.28"
+  cluster_ip_family                = "ipv6"
+  enable_irsa                      = true
+  cluster_endpoint_public_access   = true
+  cluster_endpoint_private_access  = true
+  create_cni_ipv6_iam_policy       = true
 
   # https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html
   cluster_addons = {
@@ -250,7 +246,7 @@ module "ingress-controller" {
 module "waf" {
   source = "./waf"
 
-  eks_cluster_name                       = var.eks_cluster_name
+  eks_cluster_name = var.eks_cluster_name
 }
 
 module "debugger" {

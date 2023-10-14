@@ -42,6 +42,10 @@ variable sonarqube_eks_cluster_auth_token {
     description = "value of the EKS cluster auth token"
 }
 
+variable sonarqube_alb_name {
+    description = "value of the ALB name"
+}
+
 variable sonarqube_waf_arn {
-    description = "value"
+    description = "value of the WAF ARN"
 }
