@@ -1,3 +1,7 @@
+variable aws_profile {
+    description = "value of the AWS profile"
+}
+
 variable keycloak_rds_username {
     description = "value of the keycloak rds username"
 }
@@ -44,4 +48,8 @@ variable keycloak_alb_name {
 
 variable keycloak_waf_arn {
     description = "value"
+}
+
+variable registry_url {
+    description = "value of the registry url"
 }

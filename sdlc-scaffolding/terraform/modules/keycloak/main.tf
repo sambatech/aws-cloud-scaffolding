@@ -12,6 +12,8 @@ module "rds" {
 module "deploy" {
   source = "./deploy"
 
+  aws_profile                                   = var.aws_profile
+  registry_url                                  = var.registry_url
   deploy_alb_name                               = var.keycloak_alb_name
   deploy_waf_arn                                = var.keycloak_waf_arn
 

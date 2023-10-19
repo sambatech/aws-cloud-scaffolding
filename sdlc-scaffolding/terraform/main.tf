@@ -37,18 +37,19 @@ module "kubernetes" {
   source = "./modules/kubernetes"
 
   aws_profile             = var.aws_profile
+  eks_cluster_name        = var.eks_cluster_name
+  eks_federated_role_name = var.iam_federated_role_name
   eks_vpc_id              = module.network.out_vpc_id
   eks_subnet_ids          = module.network.out_private_subnet_ids
   eks_cidr_blocks         = module.network.out_private_subnets_cidr_blocks
   eks_ipv6_cidr_blocks    = module.network.out_private_subnets_ipv6_cidr_blocks
-  eks_federated_role_name = var.iam_federated_role_name
-  eks_cluster_name        = var.eks_cluster_name
   eks_registry_url        = module.registry.out_registry_url
 }
 
 module "sonarqube" {
   source = "./modules/sonarqube"
 
+  aws_region                                       = var.aws_region
   sonarqube_ami_id                                 = var.sonarqube_ami_id
   sonarqube_username                               = var.sonarqube_rds_username
   sonarqube_availability_zones                     = var.vpc_availability_zones
@@ -67,6 +68,9 @@ module "sonarqube" {
 
 module "keycloak" {
   source = "./modules/keycloak"
+
+  aws_profile                                     = var.aws_profile
+  registry_url                                    = module.registry.out_registry_url
 
   keycloak_rds_username                           = var.keycloak_rds_username
   keycloak_availability_zones                     = var.vpc_availability_zones

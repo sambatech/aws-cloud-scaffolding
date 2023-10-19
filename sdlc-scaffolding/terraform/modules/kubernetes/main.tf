@@ -142,12 +142,30 @@ module "eks" {
   eks_managed_node_groups = {
     # Default node group - as provided by AWS EKS
     default = {
-      use_custom_launch_template = false
-      instance_types             = ["t3a.large"]
-      disk_size                  = 20
-      min_size                   = 1
-      max_size                   = 3
-      desired_size               = 1
+      instance_types    = ["t3a.large"]
+      disk_size         = 20
+      min_size          = 1
+      max_size          = 10
+      desired_size      = 1
+    }
+
+    keycloak = {
+      instance_types    = ["t3a.micro"]
+      capacity_type     = "SPOT"
+      disk_size         = 20
+      min_size          = 1
+      max_size          = 5
+      desired_size      = 3
+      update_config     = {
+        max_unavailable = 1
+      }
+      taints = [
+        {
+          key    = "dedicated"
+          value  = "keycloak"
+          effect = "NO_SCHEDULE"
+        }
+      ]
     }
 
     sonarqube = {

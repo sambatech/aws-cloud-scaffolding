@@ -1,3 +1,7 @@
+variable aws_profile {
+    description = "value of the AWS profile"
+}
+
 variable deploy_vpc_id {
     description = "value of the VPC id"
 }
@@ -49,4 +53,8 @@ variable deploy_alb_name {
 
 variable deploy_waf_arn {
     description = "value"
+}
+
+variable registry_url {
+    description = "value of the registry url"
 }

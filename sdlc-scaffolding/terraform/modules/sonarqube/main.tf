@@ -12,6 +12,7 @@ module "rds" {
 module "deploy" {
   source = "./deploy"
 
+  aws_region                                    = var.aws_region
   deploy_vpc_id                                 = var.sonarqube_vpc_id
   deploy_subnet_ids                             = var.sonarqube_subnet_ids
   deploy_cidr_blocks                            = var.sonarqube_cidr_blocks
