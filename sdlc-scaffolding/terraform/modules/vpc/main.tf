@@ -9,8 +9,8 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_vpc_dhcp_options" "dhcp_options" {
-  domain_name          = "platform.com"
-  domain_name_servers = [ "AmazonProvidedDNS" ]
+  domain_name         = "platform.com"
+  domain_name_servers = ["AmazonProvidedDNS"]
 
   tags = {
     Name = "dhcp-platform"
@@ -29,8 +29,9 @@ resource "aws_subnet" "public_subnets" {
   availability_zone       = element(var.vpc_availability_zones, count.index)
   map_public_ip_on_launch = true
   tags = {
+    Type                     = "Public_Subnet"
     Name                     = "subnet-platform-pub-${count.index + 1}"
-    "kubernetes.io/role/elb" = "1"
+    "kubernetes.io/role/elb" = 1
   }
 }
 
@@ -42,6 +43,7 @@ resource "aws_subnet" "private_subnets" {
   map_public_ip_on_launch = false
 
   tags = {
+    Type                                                = "Private_Subnet"
     Name                                                = "subnet-platform-priv-${count.index + 1}"
     "kubernetes.io/cluster/${var.vpc_eks_cluster_name}" = "shared"
     "kubernetes.io/role/internal-elb"                   = 1
@@ -57,17 +59,17 @@ resource "aws_internet_gateway" "igw" {
 }
 
 resource "aws_eip" "nat_eip" {
-  vpc        = true
+  domain     = "vpc"
   depends_on = [aws_internet_gateway.igw]
 }
 
 resource "aws_nat_gateway" "nat" {
   allocation_id = aws_eip.nat_eip.id
-  subnet_id     = element(aws_subnet.private_subnets.*.id, 0)
+  subnet_id     = element(aws_subnet.public_subnets[*].id, 0)
   depends_on    = [aws_internet_gateway.igw]
 
   tags = {
-    Name        = "nat-platform"
+    Name = "nat-platform"
   }
 }
 
@@ -122,8 +124,8 @@ resource "aws_vpc_endpoint" "vpc_gateway_endpoints" {
   service_name      = each.value
   vpc_endpoint_type = "Gateway"
   vpc_id            = aws_vpc.main.id
-  route_table_ids   = [
-    aws_route_table.secondary_rtb.id 
+  route_table_ids = [
+    aws_route_table.secondary_rtb.id
   ]
 
   tags = {
@@ -141,13 +143,15 @@ resource "aws_vpc_endpoint" "vpc_interface_endpoints" {
     "com.amazonaws.${var.vpc_aws_region}.ecr.dkr",
     "com.amazonaws.${var.vpc_aws_region}.autoscaling",
     "com.amazonaws.${var.vpc_aws_region}.aps-workspaces",
-    "com.amazonaws.${var.vpc_aws_region}.elasticloadbalancing"
+    "com.amazonaws.${var.vpc_aws_region}.elasticloadbalancing",
+    "com.amazonaws.${var.vpc_aws_region}.eks-auth",
+    "com.amazonaws.${var.vpc_aws_region}.eks"
   ])
 
-  service_name      = each.value
-  vpc_endpoint_type = "Interface"
-  vpc_id            = aws_vpc.main.id
-  subnet_ids        = setunion(
+  service_name        = each.value
+  vpc_endpoint_type   = "Interface"
+  vpc_id              = aws_vpc.main.id
+  subnet_ids = setunion(
     aws_subnet.private_subnets[*].id,
   )
 
@@ -155,3 +159,48 @@ resource "aws_vpc_endpoint" "vpc_interface_endpoints" {
     Name = "vpce-platform-${trimprefix(each.value, "com.amazonaws.${var.vpc_aws_region}.")}"
   }
 }
+
+# resource "aws_vpc_endpoint" "eks_endpoint" {
+#   service_name        = "com.amazonaws.${var.vpc_aws_region}.eks"
+#   vpc_endpoint_type   = "Interface"
+#   vpc_id              = aws_vpc.main.id
+#   private_dns_enabled = true
+#   subnet_ids          = setunion(aws_subnet.private_subnets[*].id)
+#   security_group_ids = [aws_security_group.eks.id]
+# }
+
+# resource "aws_vpc_endpoint_route_table_association" "eks" {
+#   count = length(aws_subnet.private_subnets)
+
+#   vpc_endpoint_id = aws_vpc_endpoint.eks_endpoint.id
+#   route_table_id  = aws_route_table.eks_route.id
+# }
+
+# resource "aws_security_group" "eks" {
+#   vpc_id      = aws_vpc.main.id
+#   name_prefix = "eks-"
+
+#   tags = {
+#     "Name"                                              = "eks-cluster-sg-${var.vpc_eks_cluster_name}"
+#     "kubernetes.io/cluster/${var.vpc_eks_cluster_name}" = "owned",
+#     "aws:eks:cluster-name"                              = var.vpc_eks_cluster_name
+#   }
+# }
+
+# resource "aws_security_group_rule" "eks" {
+#   type              = "ingress"
+#   from_port         = 0
+#   to_port           = 65535
+#   protocol          = "tcp"
+#   cidr_blocks       = ["0.0.0.0/0"]
+#   security_group_id = aws_security_group.eks.id
+# }
+
+# resource "aws_security_group_rule" "eks_egress" {
+#   type              = "egress"
+#   from_port         = 0
+#   to_port           = 0
+#   protocol          = "-1"
+#   cidr_blocks       = ["0.0.0.0/0"]
+#   security_group_id = aws_security_group.eks.id
+# }

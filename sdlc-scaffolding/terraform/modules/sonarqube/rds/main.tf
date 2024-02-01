@@ -1,8 +1,8 @@
 resource "random_string" "password" {
-  length   = 32
-  upper    = true
-  numeric  = true
-  special  = false
+  length  = 32
+  upper   = true
+  numeric = true
+  special = false
 }
 
 resource "aws_security_group" "instance" {
@@ -11,11 +11,11 @@ resource "aws_security_group" "instance" {
   description = "Allow all local inbound for Postgres"
 
   ingress {
-      from_port   = 5432
-      to_port     = 5432
-      protocol    = "tcp"
-      cidr_blocks = var.rds_subnets.*.cidr_block
-    }
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = var.rds_subnets.*.cidr_block
+  }
 }
 
 resource "aws_db_subnet_group" "default" {
@@ -28,19 +28,19 @@ resource "aws_db_subnet_group" "default" {
 }
 
 resource "aws_rds_cluster" "database" {
-  cluster_identifier     = "sonarqube-cluster"
-  database_name          = "sonarqube"
-  engine                 = "aurora-postgresql"
-  engine_mode            = "provisioned"
-  engine_version         = "15"
+  cluster_identifier = "sonarqube-cluster"
+  database_name      = "sonarqube"
+  engine             = "aurora-postgresql"
+  engine_mode        = "provisioned"
+  engine_version     = "15"
 
   skip_final_snapshot    = true
   db_subnet_group_name   = aws_db_subnet_group.default.name
   vpc_security_group_ids = [aws_security_group.instance.id]
   availability_zones     = var.rds_availability_zones
 
-  master_username        = var.rds_username
-  master_password        = random_string.password.result
+  master_username = var.rds_username
+  master_password = random_string.password.result
 
   serverlessv2_scaling_configuration {
     max_capacity = 2.0
@@ -57,12 +57,12 @@ resource "aws_rds_cluster_instance" "instance" {
 }
 
 resource "aws_secretsmanager_secret" "sonarqube_rds_credentials" {
-   name                    = "/sdlc/rds/sonarqube/credentials"
-   recovery_window_in_days = 0
+  name                    = "/sdlc/rds/sonarqube/credentials"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "sonarqube_rds_credentials_version" {
-  secret_id = aws_secretsmanager_secret.sonarqube_rds_credentials.id
+  secret_id     = aws_secretsmanager_secret.sonarqube_rds_credentials.id
   secret_string = <<EOF
    {
     "username": "${aws_rds_cluster.database.master_username}",

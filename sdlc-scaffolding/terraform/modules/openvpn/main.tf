@@ -81,12 +81,12 @@ resource "aws_instance" "openvpn" {
 }
 
 resource "aws_secretsmanager_secret" "vpn_credentials" {
-   name                    = "/sdlc/openvpn/credentials"
-   recovery_window_in_days = 0
+  name                    = "/sdlc/openvpn/credentials"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "vpn_credentials_version" {
-  secret_id = aws_secretsmanager_secret.vpn_credentials.id
+  secret_id     = aws_secretsmanager_secret.vpn_credentials.id
   secret_string = <<EOF
    {
     "username": "${var.vpn_username}",
@@ -96,8 +96,8 @@ EOF
 }
 
 resource "aws_secretsmanager_secret" "vpn_pem" {
-   name                    = "/sdlc/openvpn/pem"
-   recovery_window_in_days = 0
+  name                    = "/sdlc/openvpn/pem"
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "vpn_pem_version" {

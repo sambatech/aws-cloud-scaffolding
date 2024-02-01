@@ -6,15 +6,15 @@
 #}
 
 resource "aws_eks_addon" "eks_addon_vpc_cni" {
-  addon_name        = "vpc-cni"
-  addon_version     = "v1.13.2-eksbuild.1"
-  resolve_conflicts = "OVERWRITE"
-  cluster_name      = var.eks_cluster_name
+  addon_name                  = "vpc-cni"
+  addon_version               = "v1.16.0-eksbuild.1"
+  resolve_conflicts_on_update = "OVERWRITE"
+  cluster_name                = var.eks_cluster_name
 }
 
 resource "aws_eks_addon" "eks_addon_kube_proxy" {
-  addon_name        = "kube-proxy"
-  addon_version     = "v1.27.3-eksbuild.1"
-  resolve_conflicts = "OVERWRITE"
-  cluster_name      = var.eks_cluster_name
+  addon_name                  = "kube-proxy"
+  addon_version               = "v1.27.8-eksbuild.1"
+  resolve_conflicts_on_update = "OVERWRITE"
+  cluster_name                = var.eks_cluster_name
 }
