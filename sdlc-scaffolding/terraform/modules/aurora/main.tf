@@ -1,20 +1,3 @@
-# resource "aws_rds_cluster" "serverless_cluster" {
-#   engine_mode            = "serverless"
-#   engine                 = "aurora"
-#   engine_version         = "5.6.10a"
-#   cluster_identifier     = "serverless-cluster"
-#   vpc_security_group_ids = [aws_security_group.sg_rds.id]
-#   db_subnet_group_name   = aws_db_subnet_group.subnet_group.name
-#   skip_final_snapshot    = true
-#   deletion_protection    = false
-
-#   scaling_configuration {
-#     auto_pause               = true
-#     min_capacity             = 1
-#     max_capacity             = 2
-#     seconds_until_auto_pause = 300
-#   }
-
 resource "aws_rds_cluster" "serverless_cluster" {
   cluster_identifier     = var.serverless_cluster
   engine                 = var.engine

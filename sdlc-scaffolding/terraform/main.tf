@@ -6,15 +6,15 @@ terraform {
     }
   }
   backend "s3" {
-    # profile = "platform"
-    bucket = "opensamba-terraform"
+    profile = "plataform-videos"
+    bucket = "sambavideos-terraform"
     key    = "sdlc/terraform.tfstate"
     region = "us-east-1"
   }
 }
 
 provider "aws" {
-  # profile = var.aws_profile
+  profile = var.aws_profile
   region = var.aws_region
 }
 
@@ -70,4 +70,15 @@ module "aurora" {
   main_vpc           = module.vpc.out_vpc
   instance_class     = var.instance_class
 
+}
+
+module "registry" {
+  source = "./modules/ecr"
+  ecr-name = var.ecr-name
+}
+
+module "zone-hospedada" {
+  source = "./modules/dns"
+  domain-name = var.domain-name
+  domain-address = var.domain-address
 }

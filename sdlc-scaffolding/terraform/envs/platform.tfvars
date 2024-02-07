@@ -1,12 +1,12 @@
 aws_region  = "us-east-1"
-aws_profile = "platform"
+aws_profile = "plataform-videos"
 
 ################################
 # VPC
 ################################
-vpc_cidr_block           = "10.0.0.0/16"
-vpc_private_subnet_cidrs = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
-vpc_public_subnet_cidrs  = ["10.0.121.0/24", "10.0.122.0/24", "10.0.123.0/24"]
+vpc_cidr_block           = "10.1.64.0/18"
+vpc_private_subnet_cidrs = ["10.1.64.0/20", "10.1.80.0/20", "10.1.96.0/20"]
+vpc_public_subnet_cidrs  = ["10.1.112.0/22", "10.1.116.0/22", "10.1.120.0/22"]
 vpc_availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
 
 ################################
@@ -30,7 +30,7 @@ sonarqube_rds_username = "sonarqube"
 ################################
 # AURORA
 ################################
-aurora_subnets     = ["10.0.131.0/24", "10.0.132.0/24", "10.0.133.0/24"]
+aurora_subnets     = ["10.1.123.0/24", "10.1.124.0/24", "10.1.125.0/24"]
 engine             = "aurora-mysql"
 serverless_cluster = "serverless-cluster"
 engine_mode        = "provisioned"
@@ -39,3 +39,14 @@ database_name      = "NomedoBanco"
 database_user      = "usuario"
 database_password  = "password123"
 instance_class     = "db.serverless"
+
+################################
+# ECR
+################################
+ecr-name = "samba-videos-reg"
+
+################################
+# HOSTED ZONE
+################################
+domain-name = "dominio.com"
+domain-address = "10.0.0.250"

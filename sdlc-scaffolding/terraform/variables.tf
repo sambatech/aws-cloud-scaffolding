@@ -95,3 +95,24 @@ variable "engine_mode" {
 variable "instance_class" {
   description = "Classe da Instancia"
 }
+
+#########################################
+#       ECR
+#########################################
+
+variable "ecr-name" {
+  type = string
+  description = "Registry de imagens para o EKS"
+}
+
+#########################################
+# HOSTED ZONE
+#########################################
+
+variable "domain-name" {
+  description = "Endereço para a zona hospedada"
+}
+
+variable "domain-address" {
+  description = "Endereço de IP da zona hospedada"
+}
