@@ -23,5 +23,5 @@ output "out_private_subnets_ipv6_cidr_blocks" {
 }
 
 output "out_availability_zones" {
-  value = var.vpc_availability_zones
+  value = var.availability_zones
 }

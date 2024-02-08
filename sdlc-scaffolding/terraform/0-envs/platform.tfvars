@@ -11,11 +11,11 @@ iam_federated_role_name  = "arn:aws:iam::021847444320:role/AWSReservedSSO_Admini
 ################################
 # VPC
 ################################
-vpc_creation_enabled     = false
-vpc_cidr_block           = "10.0.128.0/18"
-vpc_private_subnet_cidrs = ["10.0.144.0/20", "10.0.160.0/20", "10.0.176.0/20"]
-vpc_public_subnet_cidrs  = ["10.0.128.0/22", "10.0.132.0/22", "10.0.136.0/22"]
-vpc_availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
+creation_enabled     = false
+cidr_block           = "10.0.128.0/18"
+private_subnet_cidrs = ["10.0.144.0/20", "10.0.160.0/20", "10.0.176.0/20"]
+public_subnet_cidrs  = ["10.0.128.0/22", "10.0.132.0/22", "10.0.136.0/22"]
+availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
 
 ################################
 # EKS
