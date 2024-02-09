@@ -384,4 +384,6 @@ resource "helm_release" "aws_load_balancer_controller" {
     name  = "serviceAccount.name"
     value = "${local.ingress_controller_service_account_name}"
   }
+
+  depends_on = [ kubectl_manifest.ingress_controller_service_account ]
 }

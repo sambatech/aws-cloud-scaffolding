@@ -1,3 +1,23 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.36"
+    }
+  }
+  backend "s3" {
+    profile = "platform"
+    bucket = "plat-engineering-terraform-st"
+    key    = "sdlc/registry.tfstate"
+    region = "us-east-1"
+  }
+}
+
+provider "aws" {
+  profile = var.aws_profile
+  region  = var.aws_region
+}
+
 data "aws_iam_policy_document" "assume_role" {
     statement {
         actions = ["sts:AssumeRole"]
@@ -46,7 +66,7 @@ resource "aws_iam_role_policy_attachment" "role_policy_attachment" {
 module "ecr" {
   source = "terraform-aws-modules/ecr/aws"
 
-  repository_name                   = "platform-engineering"
+  repository_name                   = var.repository_name
   repository_read_write_access_arns = [aws_iam_role.ecr_allow_pushpull_role.arn]
   repository_force_delete           = true
 

@@ -2,13 +2,13 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 4.57.0"
+      version = "~> 5.36"
     }
   }
   backend "s3" {
     profile = "platform"
     bucket = "plat-engineering-terraform-st"
-    key    = "sdlc/terraform.tfstate"
+    key    = "sdlc/network.tfstate"
     region = "us-east-1"
   }
 }
@@ -22,9 +22,9 @@ data "aws_availability_zones" "available" {}
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 4.0"
+  version = "~> 5.5"
 
-  name = "platform"
+  name = var.vpc_name
   cidr = var.cidr_block
 
   azs             = var.availability_zones
@@ -33,8 +33,10 @@ module "vpc" {
 
   enable_ipv6            = true
   enable_nat_gateway     = true
-  create_egress_only_igw = true
+  enable_dns_hostnames   = true
+  enable_dns_support     = true
   one_nat_gateway_per_az = true
+  create_egress_only_igw = true
   single_nat_gateway     = false
 
   public_subnet_ipv6_prefixes                    = [0, 1, 2]
@@ -44,11 +46,13 @@ module "vpc" {
 
   public_subnet_tags = {
     "kubernetes.io/role/elb" = 1
-    "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "subnet/kind" = "public"
   }
 
   private_subnet_tags = {
     "kubernetes.io/role/internal-elb" = 1
-    "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    "subnet/kind" = "private"
   }
 }

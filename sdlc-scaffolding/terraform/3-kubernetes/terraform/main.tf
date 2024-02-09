@@ -1,9 +1,55 @@
-data "aws_caller_identity" "current" {}
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.36"
+    }
+  }
+  backend "s3" {
+    profile = "platform"
+    bucket = "plat-engineering-terraform-st"
+    key    = "sdlc/kubernetes.tfstate"
+    region = "us-east-1"
+  }
+}
+
+provider "aws" {
+  profile = var.aws_profile
+  region  = var.aws_region
+}
+
+data "aws_vpc" "instance" {
+  cidr_block = var.cidr_block
+  filter {
+    name   = "tag:Name"
+    values = [var.vpc_name]
+  }
+  filter {
+    name   = "state"
+    values = ["available"]
+  }
+}
+
+data "aws_subnets" "query" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.instance.id]
+  }
+  filter {
+    name   = "tag:subnet/kind"
+    values = ["private"]
+  }
+}
+
+data "aws_subnet" "instance" {
+  for_each = toset(data.aws_subnets.query.ids)
+  id       = each.value
+}
 
 resource "aws_security_group" "remote_access" {
   name_prefix = "nodes-remote-access"
   description = "Allow remote SSH access"
-  vpc_id      = var.eks_vpc_id
+  vpc_id      = data.aws_vpc.instance.id
 
   ingress {
     description = "SSH access"
@@ -31,33 +77,21 @@ resource "aws_key_pair" "this" {
   public_key      = tls_private_key.this.public_key_openssh
 }
 
-data "aws_eks_cluster" "default" {
-  name  = coalesce(module.eks.cluster_id, var.eks_cluster_name)
-}
-
-data "aws_eks_cluster_auth" "default" {
-  name  = coalesce(module.eks.cluster_id, var.eks_cluster_name)
-}
-
-provider "kubernetes" {
-  host                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
-  cluster_ca_certificate = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
-  token                  = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
-}
-
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.16"
+  version = "~> 20.2"
 
-  cluster_name                     = var.eks_cluster_name
-  vpc_id                           = var.eks_vpc_id
-  subnet_ids                       = var.eks_subnet_ids
-  cluster_version                  = "1.28"
+  cluster_name                     = var.cluster_name
+  vpc_id                           = data.aws_vpc.instance.id
+  subnet_ids                       = data.aws_subnets.query.ids
+  cluster_version                  = "1.29"
   cluster_ip_family                = "ipv6"
   enable_irsa                      = true
   cluster_endpoint_public_access   = true
   cluster_endpoint_private_access  = true
   create_cni_ipv6_iam_policy       = true
+
+  enable_cluster_creator_admin_permissions = true
 
   # https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html
   cluster_addons = {
@@ -186,29 +220,6 @@ module "eks" {
       ]
     }
   }
-
-  # aws-auth configmap
-  manage_aws_auth_configmap = true
-
-  aws_auth_roles = [
-    {
-      rolearn  = var.eks_federated_role_name
-      username = "sso_admin_role"
-      groups   = ["system:masters"]
-    },
-  ]
-
-  aws_auth_users = [
-    {
-      userarn  = data.aws_caller_identity.current.arn
-      username = data.aws_caller_identity.current.user_id
-      groups   = ["system:masters"]
-    }
-  ]
-
-  aws_auth_accounts = [
-    data.aws_caller_identity.current.account_id
-  ]
 }
 
 module "vpc_cni_irsa" {
@@ -226,53 +237,4 @@ module "vpc_cni_irsa" {
       namespace_service_accounts = ["kube-system:aws-node"]
     }
   }
-}
-
-module "efs" {
-  source = "./efs"
-
-  oidc_provider_arn                          = module.eks.oidc_provider_arn
-
-  efs_vpc_id                                 = var.eks_vpc_id
-  efs_subnet_ids                             = var.eks_subnet_ids
-  efs_cidr_blocks                            = var.eks_cidr_blocks
-  efs_ipv6_cidr_blocks                       = var.eks_ipv6_cidr_blocks
-  efs_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
-  efs_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
-  efs_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
-}
-
-module "metrics-server" {
-  source = "./metrics-server"
-
-  deploy_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
-  deploy_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
-  deploy_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
-}
-
-module "ingress-controller" {
-  source = "./ingress-controller"
-
-  eks_vpc_id                             = var.eks_vpc_id
-  eks_cluster_name                       = var.eks_cluster_name
-  oidc_provider_arn                      = module.eks.oidc_provider_arn
-  eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
-  eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
-  eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
-}
-
-module "waf" {
-  source = "./waf"
-
-  eks_cluster_name = var.eks_cluster_name
-}
-
-module "debugger" {
-  source = "./debugger"
-
-  aws_profile                                     = var.aws_profile
-  registry_url                                    = var.eks_registry_url
-  debugger_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
-  debugger_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
-  debugger_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
 }
