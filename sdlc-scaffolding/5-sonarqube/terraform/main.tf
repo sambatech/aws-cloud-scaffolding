@@ -1,3 +1,51 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.36"
+    }
+  }
+  backend "s3" {
+    profile = "platform"
+    bucket = "plat-engineering-terraform-st"
+    key    = "sdlc/sonarqube.tfstate"
+    region = "us-east-1"
+  }
+}
+
+provider "aws" {
+  profile = var.aws_profile
+  region  = var.aws_region
+}
+
+data "aws_vpc" "instance" {
+  cidr_block = var.cidr_block
+  filter {
+    name   = "tag:Name"
+    values = [var.vpc_name]
+  }
+  filter {
+    name   = "state"
+    values = ["available"]
+  }
+}
+
+data "aws_subnets" "query" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.instance.id]
+  }
+  filter {
+    name   = "tag:subnet/kind"
+    values = ["private"]
+  }
+}
+
+data "aws_subnet" "instance" {
+  for_each = toset(data.aws_subnets.query.ids)
+  id       = each.value
+}
+
 module "rds" {
   source = "./rds"
 

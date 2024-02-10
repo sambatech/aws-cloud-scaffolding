@@ -1,5 +1,9 @@
 variable aws_region {
-    description = "The AWS region to deploy the SonarQube"
+  description = "The AWS region for creating the infrastructure"
+}
+
+variable aws_profile {
+  description = "The AWS region for creating the infrastructure"
 }
 
 variable sonarqube_vpc_id {
