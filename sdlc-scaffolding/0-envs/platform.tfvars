@@ -6,7 +6,6 @@ aws_profile              = "platform"
 ################################
 # AWS EKS aws-auth config-map don't recognize the full arn role name, so we need to use the short name
 # arn:aws:iam::021847444320:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_AdministratorAccess_d856cb421c5265d1
-oidc_provider_arn        = "arn:aws:iam::021847444320:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/C5A14CCA66E2AF45967E0A2B49079B1C"
 iam_federated_role_name  = "arn:aws:iam::021847444320:role/AWSReservedSSO_AdministratorAccess_d856cb421c5265d1"
 
 ################################

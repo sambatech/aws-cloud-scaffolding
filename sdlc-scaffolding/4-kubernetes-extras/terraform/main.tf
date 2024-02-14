@@ -59,7 +59,7 @@ data "aws_eks_cluster_auth" "default" {
 }
 
 data "aws_iam_openid_connect_provider" "instance" {
-  arn = var.oidc_provider_arn
+  url = data.aws_eks_cluster.default.identity.0.oidc.0.issuer
 }
 
 provider "kubernetes" {
@@ -71,7 +71,7 @@ provider "kubernetes" {
 module "efs" {
   source = "./efs"
 
-  oidc_provider_arn                          = var.oidc_provider_arn
+  oidc_provider_arn                          = data.aws_iam_openid_connect_provider.instance.arn
   efs_vpc_id                                 = data.aws_vpc.instance.id
   efs_subnet_ids                             = data.aws_subnets.query.ids
   
@@ -94,9 +94,9 @@ module "metrics-server" {
 module "ingress-controller" {
   source = "./ingress-controller"
 
-  eks_vpc_id                             = data.aws_vpc.instance.id
   eks_cluster_name                       = var.cluster_name
-  oidc_provider_arn                      = var.oidc_provider_arn
+  eks_vpc_id                             = data.aws_vpc.instance.id
+  oidc_provider_arn                      = data.aws_iam_openid_connect_provider.instance.arn
 
   eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
   eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))

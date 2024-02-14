@@ -25,7 +25,3 @@ variable vpc_name {
 variable cidr_block {
   description = "value of the EKS cluster CIDR blocks"
 }
-
-variable oidc_provider_arn {
-  description = "oidc identity code"
-}
