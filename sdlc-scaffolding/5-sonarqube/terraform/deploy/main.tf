@@ -22,6 +22,35 @@ locals {
   sonar_host_url = "https://${local.sonar_host}"
 }
 
+module "eks_managed_node_group" {
+  source  = "terraform-aws-modules/eks/aws//modules/eks-managed-node-group"
+  version = "~> 20.0"
+
+  name            = "sonarqube"
+  cluster_name    = var.deploy_cluster_name
+  cluster_version = var.deploy_cluster_version
+
+  subnet_ids                        = var.deploy_subnet_ids
+  cluster_primary_security_group_id = var.deploy_cluster_primary_security_group_id
+  vpc_security_group_ids            = var.deploy_cluster_security_group_ids
+
+  capacity_type  = "SPOT"
+  ami_type       = "AL2_x86_64"
+  instance_types = ["t3a.large","t3.large","c7i.large","c6i.large","c5a.large","c6in.large","c5ad.large"]
+
+  min_size     = 1
+  max_size     = 1
+  desired_size = 1
+
+  taints = {
+    dedicated = {
+      key    = "dedicated"
+      value  = "sonarqube"
+      effect = "NO_SCHEDULE"
+    }
+  }
+}
+
 resource "aws_security_group" "sonarqube_efs_sg" {
   name        = "sonarqube-efs-sg"
   description = "Allow NFS inbound traffic"
@@ -147,6 +176,7 @@ data:
   SONAR_WEB_JAVAOPTS: "-Xmx2048m -Xms2048m -XX:+HeapDumpOnOutOfMemoryError"
   SONAR_CE_JAVAOPTS: "-Xmx2048m -Xms2048m -XX:+HeapDumpOnOutOfMemoryError"
   SONAR_SEARCH_JAVAOPTS: "-Xmx2048m -Xms2048m -XX:MaxDirectMemorySize=256m -XX:+HeapDumpOnOutOfMemoryError"
+  SONAR_TELEMETRY_ENABLE: "false"
 YAML
 
     depends_on = [
@@ -230,7 +260,7 @@ spec:
           privileged: true
       containers:
       - name: sonarqube
-        image: sonarqube:9.9.2-community
+        image: sonarqube:9.9.4-community
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9000

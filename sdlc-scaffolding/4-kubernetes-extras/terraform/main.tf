@@ -7,9 +7,9 @@ terraform {
   }
   backend "s3" {
     profile = "platform"
-    bucket = "plat-engineering-terraform-st"
-    key    = "sdlc/kubernetes-extra.tfstate"
-    region = "us-east-1"
+    bucket  = "plat-engineering-terraform-st"
+    key     = "sdlc/kubernetes-extra.tfstate"
+    region  = "us-east-1"
   }
 }
 
@@ -51,11 +51,11 @@ data "aws_ecr_repository" "instance" {
 }
 
 data "aws_eks_cluster" "default" {
-  name  = var.cluster_name
+  name = var.cluster_name
 }
 
 data "aws_eks_cluster_auth" "default" {
-  name  = var.cluster_name
+  name = var.cluster_name
 }
 
 data "aws_iam_openid_connect_provider" "instance" {
@@ -68,15 +68,34 @@ provider "kubernetes" {
   token                  = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
 }
 
+# @see https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/config_map_v1_data
+resource "kubernetes_config_map_v1_data" "aws_auth" {
+  force = false
+
+  data = {
+    "mapRoles" = <<-EOT
+      - groups:
+        - system:masters
+        rolearn: ${var.iam_federated_role_name}
+        username: AWSReservedSSO-AdministratorAccess-Role
+    EOT
+  }
+
+  metadata {
+    name             = "aws-auth"
+    namespace        = "kube-system"
+  }
+}
+
 module "efs" {
   source = "./efs"
 
-  oidc_provider_arn                          = data.aws_iam_openid_connect_provider.instance.arn
-  efs_vpc_id                                 = data.aws_vpc.instance.id
-  efs_subnet_ids                             = data.aws_subnets.query.ids
-  
-  efs_cidr_blocks                            = [for s in data.aws_subnet.instance : s.cidr_block]
-  efs_ipv6_cidr_blocks                       = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
+  oidc_provider_arn = data.aws_iam_openid_connect_provider.instance.arn
+  efs_vpc_id        = data.aws_vpc.instance.id
+  efs_subnet_ids    = data.aws_subnets.query.ids
+
+  efs_cidr_blocks      = [for s in data.aws_subnet.instance : s.cidr_block]
+  efs_ipv6_cidr_blocks = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
 
   efs_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
   efs_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
@@ -94,9 +113,9 @@ module "metrics-server" {
 module "ingress-controller" {
   source = "./ingress-controller"
 
-  eks_cluster_name                       = var.cluster_name
-  eks_vpc_id                             = data.aws_vpc.instance.id
-  oidc_provider_arn                      = data.aws_iam_openid_connect_provider.instance.arn
+  eks_cluster_name  = var.cluster_name
+  eks_vpc_id        = data.aws_vpc.instance.id
+  oidc_provider_arn = data.aws_iam_openid_connect_provider.instance.arn
 
   eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
   eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))

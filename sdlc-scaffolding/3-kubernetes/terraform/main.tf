@@ -156,7 +156,10 @@ module "eks" {
   ##############################################
   eks_managed_node_group_defaults = {
     ami_type                   = "AL2_x86_64"
-    instance_types             = ["t3a.micro"]
+    # @see https://aws.amazon.com/pt/ec2/spot/instance-advisor/
+    # @see https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
+    instance_types             = ["t3a.small","t3.small","c7i.large","c6i.large","c5a.large","c6in.large","c5ad.large"]
+
 
     # We are using the IRSA created below for permissions
     # However, we have to deploy with the policy attached FIRST (when creating a fresh cluster)
@@ -176,48 +179,14 @@ module "eks" {
   eks_managed_node_groups = {
     # Default node group - as provided by AWS EKS
     default = {
-      instance_types    = ["t3a.large"]
-      disk_size         = 20
-      min_size          = 1
-      max_size          = 10
-      desired_size      = 1
-    }
-
-    keycloak = {
-      instance_types    = ["t3a.micro"]
       capacity_type     = "SPOT"
+      # @see https://aws.amazon.com/pt/ec2/spot/instance-advisor/
+      # @see https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
+      instance_types    = ["t3a.small","t3.small","c7i.large","c6i.large","c5a.large","c6in.large","c5ad.large"]
       disk_size         = 20
       min_size          = 1
-      max_size          = 5
-      desired_size      = 3
-      update_config     = {
-        max_unavailable = 1
-      }
-      taints = [
-        {
-          key    = "dedicated"
-          value  = "keycloak"
-          effect = "NO_SCHEDULE"
-        }
-      ]
-    }
-
-    sonarqube = {
-      instance_types    = ["t3a.large"]
-      disk_size         = 20
-      min_size          = 1
-      max_size          = 1
+      max_size          = 3
       desired_size      = 1
-      update_config     = {
-        max_unavailable = 1
-      }
-      taints = [
-        {
-          key    = "dedicated"
-          value  = "sonarqube"
-          effect = "NO_SCHEDULE"
-        }
-      ]
     }
   }
 }

@@ -46,30 +46,50 @@ data "aws_subnet" "instance" {
   id       = each.value
 }
 
+data "aws_eks_cluster" "default" {
+  name  = var.cluster_name
+}
+
+data "aws_eks_cluster_auth" "default" {
+  name  = var.cluster_name
+}
+
 module "rds" {
   source = "./rds"
 
-  rds_vpc_id              = var.sonarqube_vpc_id
-  rds_subnet_ids          = var.sonarqube_subnet_ids
-  rds_subnets_cidr_blocks = var.sonarqube_cidr_blocks
-  rds_ipv6_cidr_blocks    = var.sonarqube_ipv6_cidr_blocks
+  rds_vpc_id              = data.aws_vpc.instance.id
+  rds_subnet_ids          = data.aws_subnets.query.ids
+  rds_subnets_cidr_blocks = [for s in data.aws_subnet.instance : s.cidr_block]
+  rds_ipv6_cidr_blocks    = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
   rds_username            = var.sonarqube_username
-  rds_availability_zones  = var.sonarqube_availability_zones
+  rds_availability_zones  = var.availability_zones
 }
 
 module "deploy" {
   source = "./deploy"
 
   aws_region                                    = var.aws_region
-  deploy_vpc_id                                 = var.sonarqube_vpc_id
-  deploy_subnet_ids                             = var.sonarqube_subnet_ids
-  deploy_cidr_blocks                            = var.sonarqube_cidr_blocks
-  deploy_ipv6_cidr_blocks                       = var.sonarqube_ipv6_cidr_blocks
-  deploy_eks_cluster_endpoint                   = var.sonarqube_eks_cluster_endpoint
-  deploy_eks_cluster_certificate_authority_data = var.sonarqube_eks_cluster_certificate_authority_data
-  deploy_eks_cluster_auth_token                 = var.sonarqube_eks_cluster_auth_token
-  deploy_alb_name                               = var.sonarqube_alb_name
+  deploy_vpc_id                                 = data.aws_vpc.instance.id
+  deploy_subnet_ids                             = data.aws_subnets.query.ids
+  deploy_cidr_blocks                            = [for s in data.aws_subnet.instance : s.cidr_block]
+  deploy_ipv6_cidr_blocks                       = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
+
+  deploy_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  deploy_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  deploy_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
+  deploy_cluster_primary_security_group_id      = data.aws_eks_cluster.default.vpc_config.0.cluster_security_group_id
+  deploy_cluster_security_group_ids             = flatten([
+    for c in data.aws_eks_cluster.default.vpc_config : [
+      for id in c.security_group_ids : tostring(id)
+    ]
+  ])
+      
+  deploy_alb_name                               = var.load_balancer_name
   deploy_waf_arn                                = var.sonarqube_waf_arn
+
+  deploy_cluster_name                           = var.cluster_name
+  deploy_cluster_version                        = data.aws_eks_cluster.default.version
+
   deploy_jdbc_username                          = module.rds.out_database_username
   deploy_jdbc_password                          = module.rds.out_database_password
   deploy_jdbc_hostname                          = module.rds.out_database_hostname

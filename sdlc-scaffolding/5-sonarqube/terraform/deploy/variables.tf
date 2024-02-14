@@ -19,6 +19,14 @@ variable deploy_ipv6_cidr_blocks {
     description = "value of the VPC ipv6 cidr blocks"
 }
 
+variable deploy_cluster_name {
+    description = "The EKS Cluster name"
+}
+
+variable deploy_cluster_version {
+    description = "The EKS Cluster version"
+}
+
 variable deploy_eks_cluster_endpoint {
     description = "value of the EKS cluster endpoint"
 }
@@ -29,6 +37,15 @@ variable deploy_eks_cluster_certificate_authority_data {
 
 variable deploy_eks_cluster_auth_token {
     description = "value of the EKS cluster auth token"
+}
+
+variable deploy_cluster_primary_security_group_id {
+    description = "The cluster security group that was created by Amazon EKS for the cluster."
+}
+
+variable deploy_cluster_security_group_ids {
+    description = "List of security group IDs"
+    type = list(string)
 }
 
 variable deploy_jdbc_username {
