@@ -207,3 +207,19 @@ module "vpc_cni_irsa" {
     }
   }
 }
+
+data "template_file" "kube_config_template" {
+  template = "${file("${path.module}/templates/kube_config.yml")}"
+  vars = {
+    aws_region                         = var.aws_region
+    aws_profile                        = var.aws_profile
+    cluster_name                       = module.eks.cluster_name
+    cluster_endpoint                   = module.eks.cluster_endpoint
+    cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
+  }
+}
+
+resource "local_file" "kube_config" {
+  filename = pathexpand("~/.kube/${module.eks.cluster_name}")
+  content  = data.template_file.kube_config_template.rendered
+}
