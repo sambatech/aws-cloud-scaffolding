@@ -134,6 +134,7 @@ metadata:
 data:
   KC_PROXY: "edge"
   KC_HTTP_PORT: "8080"
+  KC_HEALTH_ENABLED: "true"
   KC_CACHE: "ispn"
   KC_CACHE_STACK: "kubernetes"
   KC_HOSTNAME_STRICT: "true"
@@ -237,15 +238,15 @@ spec:
             - name: infinispan
               containerPort: 7800
               protocol: TCP
-          livenessProbe:
-            failureThreshold: 3
-            initialDelaySeconds: 300
-            periodSeconds: 1
-            successThreshold: 1
-            timeoutSeconds: 5
+          startupProbe:
             httpGet:
-              path: /
+              scheme: HTTP
+              path: /health/started
               port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 24
+            timeoutSeconds: 1
           readinessProbe:
             failureThreshold: 3
             initialDelaySeconds: 30
@@ -253,7 +254,18 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
             httpGet:
-              path: /realms/master
+              scheme: HTTP
+              path: /health/ready
+              port: http
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 300
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 5
+            httpGet:
+              scheme: HTTP
+              path: /health/live
               port: http
 YAML
 
