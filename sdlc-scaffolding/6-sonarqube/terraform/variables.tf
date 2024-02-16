@@ -35,6 +35,6 @@ variable load_balancer_name {
     description = "value of the ALB name"
 }
 
-variable sonarqube_waf_arn {
+variable waf_arn {
     description = "value of the WAF ARN"
 }

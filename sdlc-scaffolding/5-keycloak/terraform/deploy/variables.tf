@@ -31,6 +31,22 @@ variable deploy_eks_cluster_auth_token {
     description = "value of the EKS cluster auth token"
 }
 
+variable deploy_cluster_name {
+
+}
+
+variable deploy_cluster_version {
+
+}
+
+variable deploy_cluster_primary_security_group_id {
+
+}
+
+variable deploy_cluster_security_group_ids {
+
+}
+
 variable deploy_jdbc_username {
     description = "The username to use for the SonarQube instance"
 }
@@ -55,6 +71,6 @@ variable deploy_waf_arn {
     description = "value"
 }
 
-variable registry_url {
+variable repository_name {
     description = "value of the registry url"
 }

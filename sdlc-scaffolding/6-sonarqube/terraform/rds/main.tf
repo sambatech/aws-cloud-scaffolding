@@ -57,6 +57,7 @@ resource "aws_rds_cluster" "database" {
   db_subnet_group_name   = aws_db_subnet_group.default.name
   vpc_security_group_ids = [aws_security_group.instance.id]
   availability_zones     = var.rds_availability_zones
+  storage_encrypted      = true
 
   master_username        = var.rds_username
   master_password        = random_string.password.result

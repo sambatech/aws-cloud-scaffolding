@@ -27,14 +27,15 @@ repository_name     = "platform-engineering"
 ################################
 # ALB
 ################################
-load_balancer_name     = "platform"
+load_balancer_name  = "platform"
+waf_arn             = "arn:aws:wafv2:us-east-1:021847444320:regional/webacl/platform-cluster-web-acl/5c3bf15a-78e1-4621-b95f-ac6ad00dd641"
 
 ################################
 # SOANRQUBEs
 ################################
 sonarqube_ami_id   = "ami-0eaf46e514bf33723"
 sonarqube_username = "sonarqube"
-sonarqube_waf_arn  = "arn:aws:wafv2:us-east-1:021847444320:regional/webacl/platform-cluster-web-acl/5c3bf15a-78e1-4621-b95f-ac6ad00dd641"
+
 ################################
 # KEYCLOAK
 ################################

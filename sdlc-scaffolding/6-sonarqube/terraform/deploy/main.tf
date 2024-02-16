@@ -39,8 +39,8 @@ module "eks_managed_node_group" {
   instance_types = ["t3a.large","t3.large","c7i.large","c6i.large","c5a.large","c6in.large","c5ad.large"]
 
   min_size     = 1
-  max_size     = 1
   desired_size = 1
+  max_size     = 1
 
   taints = {
     dedicated = {
@@ -177,6 +177,8 @@ data:
   SONAR_CE_JAVAOPTS: "-Xmx2048m -Xms2048m -XX:+HeapDumpOnOutOfMemoryError"
   SONAR_SEARCH_JAVAOPTS: "-Xmx2048m -Xms2048m -XX:MaxDirectMemorySize=256m -XX:+HeapDumpOnOutOfMemoryError"
   SONAR_TELEMETRY_ENABLE: "false"
+  SONAR_PATH_DATA: "/opt/sonarqube/data"
+  SONAR_PATH_TEMP: "/opt/sonarqube/temp"
 YAML
 
     depends_on = [
@@ -213,6 +215,94 @@ YAML
     ]
 }
 
+resource "kubectl_manifest" "sonarqube_init_fs" {
+    yaml_body = <<YAML
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sonarqube-init-fs
+  namespace: sonarqube
+  labels:
+    app: sonarqube
+data:
+  init_fs.sh: |-
+    #!/bin/bash
+    
+    chown -R 1000:0 /opt/sonarqube
+YAML
+
+    depends_on = [
+        kubectl_manifest.sonarqube_namespace
+    ]
+}
+
+resource "kubectl_manifest" "sonarqube_init_sysctl" {
+    yaml_body = <<YAML
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sonarqube-init-sysctl
+  namespace: sonarqube
+  labels:
+    app: sonarqube
+data:
+  init_sysctl.sh: |-
+    #!/bin/bash
+
+    if [[ "$(sysctl -n vm.max_map_count)" -lt 524288 ]]; then
+      sysctl -w vm.max_map_count=524288
+    fi
+    if [[ "$(sysctl -n fs.file-max)" -lt 131072 ]]; then
+      sysctl -w fs.file-max=131072
+    fi
+    if [[ "$(ulimit -n)" != "unlimited" ]]; then
+      if [[ "$(ulimit -n)" -lt 131072 ]]; then
+        echo "ulimit -n 131072"
+        ulimit -n 131072
+      fi
+    fi
+    if [[ "$(ulimit -u)" != "unlimited" ]]; then
+      if [[ "$(ulimit -u)" -lt 8192 ]]; then
+        echo "ulimit -u 8192"
+        ulimit -u 8192
+      fi
+    fi
+YAML
+
+    depends_on = [
+        kubectl_manifest.sonarqube_namespace
+    ]
+}
+
+resource "kubectl_manifest" "sonarqube_check_readiness" {
+    yaml_body = <<YAML
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sonarqube-check-readiness
+  namespace: sonarqube
+  labels:
+    app: sonarqube
+data:
+  check-readiness.sh: |-
+    #!/bin/bash
+
+    # A Sonarqube container is considered ready if the status is UP, DB_MIGRATION_NEEDED or DB_MIGRATION_RUNNING
+    # status about migration are added to prevent the node to be kill while sonarqube is upgrading the database.
+    
+    STATUS_CODE=1
+    if wget --no-proxy -qO- http://127.0.0.1:9000/api/system/status | grep -q -E '"status":"UP|DB_MIGRATION_NEEDED|DB_MIGRATION_RUNNING"'; then
+      STATUS_CODE=0
+    fi
+
+    exit $STATUS_CODE
+YAML
+
+    depends_on = [
+        kubectl_manifest.sonarqube_namespace
+    ]
+}
+
 resource "kubectl_manifest" "sonarqube_deployment" {
     yaml_body = <<YAML
 apiVersion: apps/v1
@@ -240,42 +330,99 @@ spec:
         value: "sonarqube"
         effect: "NoSchedule"
       initContainers:
-      - name: init-vm
-        image: busybox
-        command:
-        - sysctl
-        - -w
-        - vm.max_map_count=524288
+      - name: init-sysctl
+        image: sonarqube:9.9.4-community
+        command: ["/bin/bash", "-e", "/tmp/scripts/init_sysctl.sh"]
         imagePullPolicy: IfNotPresent
         securityContext:
           privileged: true
+        volumeMounts:
+        - name: init-sysctl
+          mountPath: /tmp/scripts/
       - name: init-fs
-        image: busybox
-        command:
-        - sysctl
-        - -w
-        - fs.file-max=131072
+        image: sonarqube:9.9.4-community
+        command: ["/bin/bash", "-e", "/tmp/scripts/init_fs.sh"]
         imagePullPolicy: IfNotPresent
         securityContext:
-          privileged: true
+          capabilities:
+            add:
+            - CHOWN
+            drop:
+            - ALL
+          privileged: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+          - name: init-fs
+            mountPath: /tmp/scripts/
+          - name: sonarqube-storage
+            mountPath: /opt/sonarqube/data
+            subPath: data
+          - name: sonarqube-storage
+            mountPath: /opt/sonarqube/extensions
+            subPath: extensions
+          - name: sonarqube-storage
+            mountPath: /opt/sonarqube/temp
+            subPath: temp
+          - name: sonarqube-storage
+            mountPath: /opt/sonarqube/logs
+            subPath: logs
+          - name: tmp-dir
+            mountPath: /tmp
       containers:
       - name: sonarqube
         image: sonarqube:9.9.4-community
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 9000
+        - name: http
+          containerPort: 9000
+          protocol: TCP
         envFrom:
         - configMapRef:
             name: sonarqube-config
         - secretRef:
             name: sonarqube-secret
-        volumeMounts:
-        - name: sonarqube-storage
-          mountPath: "/var/sonarqube/data/"
-          subPath: data
-        - name: sonarqube-storage
-          mountPath: "/var/sonarqube/extensions/"
-          subPath: extensions
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/system/liveness
+            port: http
+            httpHeaders:
+            - name: X-Sonar-Passcode
+              value: ${random_string.sonar_web_systempasscode.result}
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          failureThreshold: 6
+          timeoutSeconds: 1
+        readinessProbe:
+          exec:
+            command: ["/bin/bash", "-e", "/tmp/scripts/check-readiness.sh"]
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          failureThreshold: 6
+          timeoutSeconds: 1
+        startupProbe:
+          httpGet:
+            scheme: HTTP
+            path: /api/system/status
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 24
+          timeoutSeconds: 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 0
+          runAsNonRoot: true
+          runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
         resources:
           requests:
             memory: "6144Mi"
@@ -283,10 +430,48 @@ spec:
           limits:
             memory: "7168Mi"
             cpu: "2000m"
+        volumeMounts:
+        - name: check-readiness
+          mountPath: /tmp/scripts/
+        - name: sonarqube-storage
+          mountPath: /opt/sonarqube/data
+          subPath: data
+        - name: sonarqube-storage
+          mountPath: /opt/sonarqube/extensions
+          subPath: extensions
+        - name: sonarqube-storage
+          mountPath: /opt/sonarqube/temp
+          subPath: temp
+        - name: sonarqube-storage
+          mountPath: /opt/sonarqube/logs
+          subPath: logs
+        - name: tmp-dir
+          mountPath: /tmp
       volumes:
       - name: sonarqube-storage
         persistentVolumeClaim:
           claimName: sonarqube-claim
+      - name: check-readiness
+        configMap:
+          name: sonarqube-check-readiness
+          items:
+          - key: check-readiness.sh
+            path: check-readiness.sh
+      - name: init-fs
+        configMap:
+          name: sonarqube-init-fs
+          items:
+          - key: init_fs.sh
+            path: init_fs.sh
+      - name: init-sysctl
+        configMap:
+          name: sonarqube-init-sysctl
+          items:
+          - key: init_sysctl.sh
+            path: init_sysctl.sh
+      - name: tmp-dir
+        emptyDir:
+          {}
 YAML
 
     wait_for_rollout = false

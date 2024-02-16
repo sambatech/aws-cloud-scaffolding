@@ -26,9 +26,44 @@ data "aws_caller_identity" "current" {}
 
 data "aws_region" "current" {}
 
+data "aws_ecr_repository" "selected" {
+  name = var.repository_name
+}
+
 resource "time_static" "tag" {
   triggers = {
     run = local.sha1_hash
+  }
+}
+
+module "eks_managed_node_group" {
+  source  = "terraform-aws-modules/eks/aws//modules/eks-managed-node-group"
+  version = "~> 20.0"
+
+  name            = "keycloak"
+  cluster_name    = var.deploy_cluster_name
+  cluster_version = var.deploy_cluster_version
+
+  subnet_ids                        = var.deploy_subnet_ids
+  cluster_primary_security_group_id = var.deploy_cluster_primary_security_group_id
+  vpc_security_group_ids            = var.deploy_cluster_security_group_ids
+
+  capacity_type  = "SPOT"
+  ami_type       = "AL2_x86_64"
+  # @see https://aws.amazon.com/pt/ec2/spot/instance-advisor/
+  # @see https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
+  instance_types = ["t3.medium", "t3a.medium"]
+
+  min_size     = 1
+  desired_size = 2
+  max_size     = 3
+
+  taints = {
+    dedicated = {
+      key    = "dedicated"
+      value  = "keycloak"
+      effect = "NO_SCHEDULE"
+    }
   }
 }
 
@@ -38,8 +73,8 @@ resource "null_resource" "keycloak_build" {
 	    command = <<EOF
 	    aws ecr get-login-password --region ${data.aws_region.current.name} --profile ${var.aws_profile} | docker login --username AWS --password-stdin \
         ${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com
-	    docker build -t "${var.registry_url}:keycloak-v${time_static.tag.unix}" "${path.module}/docker"
-	    docker push "${var.registry_url}:keycloak-v${time_static.tag.unix}"
+	    docker build -t "${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}" "${path.module}/docker"
+	    docker push "${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}"
 	    EOF
 	  }
 	
@@ -98,16 +133,16 @@ metadata:
   namespace: keycloak
 data:
   KC_PROXY: "edge"
-  KC_HTTP_HOST: "::"
+  KC_HTTP_PORT: "8080"
   KC_CACHE: "ispn"
   KC_CACHE_STACK: "kubernetes"
-  KC_HOSTNAME_STRICT: "false"
+  KC_HOSTNAME_STRICT: "true"
   KC_HOSTNAME: "${local.keycloak_host}"
   KC_HOSTNAME_ADMIN: "${local.keycloak_host}"
-  KEYCLOAK_DATABASE_VENDOR: "postgresql"
-  KEYCLOAK_DATABASE_HOST: "${var.deploy_jdbc_hostname}"
-  KEYCLOAK_DATABASE_PORT: "${var.deploy_jdbc_port}"
-  KEYCLOAK_DATABASE_NAME: "keycloak"
+  KC_DB: "postgres"
+  KC_DB_URL_HOST: "${var.deploy_jdbc_hostname}"
+  KC_DB_URL_PORT: "${var.deploy_jdbc_port}"
+  KC_DB_URL_DATABASE: "keycloak"
   JAVA_OPTS_APPEND: "-Djgroups.dns.query=keycloak-headless.keycloak.svc.cluster.local -Dquarkus.transaction-manager.enable-recovery=true -Djava.net.preferIPv4Stack=false -Djava.net.preferIPv6Addresses=true -Dfile.encoding=UTF-8"
 YAML
 
@@ -127,8 +162,8 @@ type: Opaque
 data:
   KEYCLOAK_ADMIN: "${base64encode(local.admin_username)}"
   KEYCLOAK_ADMIN_PASSWORD: "${base64encode(random_string.password.result)}"
-  KEYCLOAK_DATABASE_USER: "${base64encode(var.deploy_jdbc_username)}"
-  KEYCLOAK_DATABASE_PASSWORD: "${base64encode(var.deploy_jdbc_password)}"
+  KC_DB_USERNAME: "${base64encode(var.deploy_jdbc_username)}"
+  KC_DB_PASSWORD: "${base64encode(var.deploy_jdbc_password)}"
 YAML
 
     depends_on = [
@@ -173,7 +208,7 @@ spec:
         effect: "NoSchedule"
       containers:
         - name: keycloak
-          image: ${var.registry_url}:keycloak-v${time_static.tag.unix}
+          image: ${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}
           imagePullPolicy: IfNotPresent
           command: ["/opt/keycloak/bin/kc.sh"]
           args:
@@ -273,24 +308,24 @@ metadata:
   namespace: keycloak
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/group.name: 'platform-engineering'
+    alb.ingress.kubernetes.io/group.name: "platform-engineering"
     alb.ingress.kubernetes.io/load-balancer-name: ${var.deploy_alb_name}
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/ip-address-type: dualstack
     alb.ingress.kubernetes.io/backend-protocol: HTTP
-    alb.ingress.kubernetes.io/success-codes: '200'
-    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/healthcheck-path: "/health"
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
-    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
-    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
-    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
-    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
-    alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
-    alb.ingress.kubernetes.io/wafv2-acl-arn: '${var.deploy_waf_arn}'
-    alb.ingress.kubernetes.io/certificate-arn: '${data.aws_acm_certificate.eks_certificate.arn}'
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/shield-advanced-protection: "true"
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "${var.deploy_waf_arn}"
+    alb.ingress.kubernetes.io/certificate-arn: "${data.aws_acm_certificate.eks_certificate.arn}"
     alb.ingress.kubernetes.io/target-group-attributes: "stickiness.enabled=true,stickiness.type=app_cookie,stickiness.app_cookie.cookie_name=AUTH_SESSION_ID"
     alb.ingress.kubernetes.io/load-balancer-attributes: "routing.http.preserve_host_header.enabled=true"
 spec:

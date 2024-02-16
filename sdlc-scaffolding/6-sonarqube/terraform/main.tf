@@ -85,7 +85,7 @@ module "deploy" {
   ])
       
   deploy_alb_name                               = var.load_balancer_name
-  deploy_waf_arn                                = var.sonarqube_waf_arn
+  deploy_waf_arn                                = var.waf_arn
 
   deploy_cluster_name                           = var.cluster_name
   deploy_cluster_version                        = data.aws_eks_cluster.default.version
