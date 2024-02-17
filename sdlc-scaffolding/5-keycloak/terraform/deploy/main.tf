@@ -137,7 +137,7 @@ data:
   KC_HEALTH_ENABLED: "true"
   KC_CACHE: "ispn"
   KC_CACHE_STACK: "kubernetes"
-  KC_HOSTNAME_STRICT: "true"
+  KC_HOSTNAME_STRICT: "false"
   KC_HOSTNAME: "${local.keycloak_host}"
   KC_HOSTNAME_ADMIN: "${local.keycloak_host}"
   KC_DB: "postgres"
@@ -216,6 +216,9 @@ spec:
           - start
           - --optimized
           - --spi-sticky-session-encoder-infinispan-should-attach-route=false
+          - --spi-x509cert-lookup-nginx-ssl-client-cert=SSL_CLIENT_CERT
+          - --spi-x509cert-lookup-nginx-ssl-cert-chain-prefix=CERT_CHAIN
+          - --spi-x509cert-lookup-nginx-certificate-chain-length=10
           securityContext:
             runAsNonRoot: true
             runAsUser: 1001
