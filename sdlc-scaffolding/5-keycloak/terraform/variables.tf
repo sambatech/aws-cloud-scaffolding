@@ -38,3 +38,7 @@ variable waf_arn {
 variable repository_name {
     description = "ECR repository name"
 }
+
+variable keycloak_host {
+    
+}

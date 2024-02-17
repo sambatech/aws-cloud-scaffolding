@@ -94,4 +94,10 @@ module "deploy" {
   deploy_jdbc_password                          = module.rds.out_database_password
   deploy_jdbc_hostname                          = module.rds.out_database_hostname
   deploy_jdbc_port                              = module.rds.out_database_port
+  
+  keycloak_realm_name                           = var.keycloak_realm_name
+  keycloak_client_id                            = var.keycloak_client_id
+  keycloak_client_secret                        = var.keycloak_client_secret
+  keycloak_host                                 = var.keycloak_host
+  sonarqube_host                                = var.sonarqube_host
 }

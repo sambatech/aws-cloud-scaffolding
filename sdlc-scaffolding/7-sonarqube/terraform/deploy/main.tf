@@ -6,6 +6,10 @@ terraform {
       source  = "gavinbunney/kubectl"
       version = ">= 1.7.0"
     }
+    keycloak = {
+      source  = "mrparkers/keycloak"
+      version = "~> 4.4"
+    }
   }
 }
 
@@ -14,12 +18,6 @@ provider "kubectl" {
   cluster_ca_certificate = var.deploy_eks_cluster_certificate_authority_data
   token                  = var.deploy_eks_cluster_auth_token
   load_config_file       = false
-}
-
-locals {
-  force_new = true
-  sonar_host = "sonar.sambatech.net"
-  sonar_host_url = "https://${local.sonar_host}"
 }
 
 module "eks_managed_node_group" {
@@ -544,7 +542,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-  - host: ${local.sonar_host}
+  - host: ${var.sonarqube_host}
     http:
       paths:
       - path: /*

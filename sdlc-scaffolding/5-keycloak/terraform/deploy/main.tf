@@ -18,7 +18,6 @@ provider "kubectl" {
 
 locals {
   admin_username = "KeycloakAdmin"
-  keycloak_host = "sso.sambatech.net"
   sha1_hash = sha1(join("", [for f in fileset("", "${path.module}/docker/*") : filesha1(f)]))
 }
 
@@ -138,8 +137,8 @@ data:
   KC_CACHE: "ispn"
   KC_CACHE_STACK: "kubernetes"
   KC_HOSTNAME_STRICT: "false"
-  KC_HOSTNAME: "${local.keycloak_host}"
-  KC_HOSTNAME_ADMIN: "${local.keycloak_host}"
+  KC_HOSTNAME: "${var.keycloak_host}"
+  KC_HOSTNAME_ADMIN: "${var.keycloak_host}"
   KC_DB: "postgres"
   KC_DB_URL_HOST: "${var.deploy_jdbc_hostname}"
   KC_DB_URL_PORT: "${var.deploy_jdbc_port}"
@@ -346,7 +345,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-  - host: ${local.keycloak_host}
+  - host: ${var.keycloak_host}
     http:
       paths:
       - path: /*

@@ -69,6 +69,7 @@ module "deploy" {
   source = "./deploy"
 
   aws_profile                                   = var.aws_profile
+  keycloak_host                                 = var.keycloak_host
 
   deploy_waf_arn                                = var.waf_arn
   repository_name                               = var.repository_name

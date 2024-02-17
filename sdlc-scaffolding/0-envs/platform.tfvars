@@ -33,10 +33,15 @@ waf_arn             = "arn:aws:wafv2:us-east-1:021847444320:regional/webacl/plat
 ################################
 # SOANRQUBEs
 ################################
+sonarqube_host     = "sonar.sambatech.net"
 sonarqube_ami_id   = "ami-0eaf46e514bf33723"
 sonarqube_username = "sonarqube"
 
 ################################
 # KEYCLOAK
 ################################
+keycloak_realm_name    = "samba"
+keycloak_client_id     = "kubernetes"
+keycloak_client_secret = "i6UJ40JCb71JvHk15f3pmABfNFsd570X"
+keycloak_host          = "sso.sambatech.net"
 keycloak_rds_username  = "keycloak"

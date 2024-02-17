@@ -74,3 +74,7 @@ variable deploy_waf_arn {
 variable repository_name {
     description = "value of the registry url"
 }
+
+variable keycloak_host {
+    
+}

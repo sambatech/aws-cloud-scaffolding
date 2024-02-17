@@ -22,6 +22,10 @@ variable sonarqube_ami_id {
     description = "The AMI ID to use for the SonarQube instance"
 }
 
+variable sonarqube_host {
+
+}
+
 variable sonarqube_username {
     description = "The username to use for the SonarQube instance"
 }
@@ -37,4 +41,20 @@ variable load_balancer_name {
 
 variable waf_arn {
     description = "value of the WAF ARN"
+}
+
+variable keycloak_realm_name {
+
+}
+
+variable keycloak_client_id {
+    description = "Keycloak client id for kubernetes access"
+}
+
+variable keycloak_client_secret {
+    description = "Keycloak client secret for kubernetes access"
+}
+
+variable keycloak_host {
+    description = "Keycloak hostname"
 }
