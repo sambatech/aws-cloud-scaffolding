@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "sonar-sambatech",
+        "projectKey": "sambatech_spipe_AY3WKf3ZZmfkiFpEEctc"
+    }
+}

@@ -14,9 +14,45 @@ data "keycloak_realm_keys" "realm_keys" {
   status     = ["ACTIVE"]
 }
 
-resource "tls_private_key" "saml" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
+resource "time_static" "momentum" {}
+
+resource "null_resource" "generate_keypair" {
+  triggers = {
+    run = time_static.momentum.rfc3339
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+    on_failure = fail
+    command = <<-EOT
+      openssl req -nodes -new -x509 \
+        -keyout ${path.module}/sonarqube.key \
+        -out ${path.module}/sonarqube.crt \
+        -subj "/C=BR/ST=MG/L=Nova Lima/O=Samba/OU=Tech/CN=sonar.sambatech.net/emailAddress=admin@sonar.sambatech.net"
+    EOT
+  }
+}
+
+data "local_file" "private_key" {
+  # 
+  # openssl rsa -in sonarqube.key -text -noout
+  # 
+  filename = "${path.module}/sonarqube.key"
+
+  depends_on = [ 
+    null_resource.generate_keypair
+  ]
+}
+
+data "local_file" "certificate" {
+  #
+  # openssl x509 -in sonarqube.crt -text -noout
+  #
+  filename = "${path.module}/sonarqube.crt"
+
+  depends_on = [ 
+    null_resource.generate_keypair
+  ]
 }
 
 #
@@ -28,13 +64,13 @@ resource "keycloak_saml_client" "client" {
   client_id                 = "sonarqube"
   name                      = "sonarqube"
 
-  sign_documents            = false
-  sign_assertions           = true
-  encrypt_assertions        = true
+  sign_documents            = true
+  sign_assertions           = false
+  encrypt_assertions        = false
   client_signature_required = true
 
-  signing_certificate = trimspace(tls_private_key.saml.public_key_pem)
-  signing_private_key = trimspace(tls_private_key.saml.private_key_pem)
+#  signing_certificate       = data.local_file.certificate.content
+#  signing_private_key       = data.local_file.private_key.content
 
   root_url                  = "https://${var.sonarqube_host}/"
   base_url                  = "https://${var.sonarqube_host}/"

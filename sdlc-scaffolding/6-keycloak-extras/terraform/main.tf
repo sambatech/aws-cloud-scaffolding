@@ -18,6 +18,7 @@ terraform {
 }
 
 #
+# 
 # @see https://registry.terraform.io/providers/mrparkers/keycloak/latest/docs
 #
 
@@ -77,4 +78,27 @@ resource "keycloak_realm" "realm" {
     relying_party_id          = "keycloak.example.com"
     signature_algorithms      = ["ES256", "RS256"]
   }
+}
+
+resource "keycloak_saml_identity_provider" "realm_saml_identity_provider" {
+  realm                         = keycloak_realm.realm.id
+
+  enabled                       = true
+  display_name                  = "Sambatech Active Directory"
+  alias                         = "azure"
+
+  entity_id                     = "https://sso.sambatech.net/realms/samba"
+  single_sign_on_service_url    = "https://login.microsoftonline.com/36fe91e0-f8f7-425c-a32c-852a2829f2c1/saml2"
+  single_logout_service_url     = "https://login.microsoftonline.com/36fe91e0-f8f7-425c-a32c-852a2829f2c1/saml2"
+
+  trust_email                   = true
+  first_broker_login_flow_alias = "first broker login"
+  name_id_policy_format         = "Email"
+  post_binding_response         = true
+  post_binding_authn_request    = true
+  sync_mode                     = "IMPORT"
+  backchannel_supported         = false
+  post_binding_logout           = false
+  store_token                   = false
+  force_authn                   = false
 }
