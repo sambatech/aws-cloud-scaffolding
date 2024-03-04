@@ -376,6 +376,16 @@ resource "helm_release" "aws_load_balancer_controller" {
   }
 
   set {
+    name  = "vpcId"
+    value = "${var.eks_vpc_id}"
+  }
+
+  set {
+    name  = "region"
+    value = "${data.aws_region.current.name}"
+  }
+
+  set {
     name  = "serviceAccount.create"
     value = "false"
   }

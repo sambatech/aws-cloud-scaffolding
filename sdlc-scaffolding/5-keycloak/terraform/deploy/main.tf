@@ -35,35 +35,17 @@ resource "time_static" "tag" {
   }
 }
 
-module "eks_managed_node_group" {
-  source  = "terraform-aws-modules/eks/aws//modules/eks-managed-node-group"
+module "eks_fargate-profile" {
+  source  = "terraform-aws-modules/eks/aws//modules/fargate-profile"
   version = "~> 20.0"
 
-  name            = "keycloak"
-  cluster_name    = var.deploy_cluster_name
-  cluster_version = var.deploy_cluster_version
+  name         = "keycloak"
+  cluster_name = var.deploy_cluster_name
+  subnet_ids   = var.deploy_subnet_ids
 
-  subnet_ids                        = var.deploy_subnet_ids
-  cluster_primary_security_group_id = var.deploy_cluster_primary_security_group_id
-  vpc_security_group_ids            = var.deploy_cluster_security_group_ids
-
-  capacity_type  = "SPOT"
-  ami_type       = "AL2_x86_64"
-  # @see https://aws.amazon.com/pt/ec2/spot/instance-advisor/
-  # @see https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
-  instance_types = ["t3.medium", "t3a.medium"]
-
-  min_size     = 1
-  desired_size = 2
-  max_size     = 3
-
-  taints = {
-    dedicated = {
-      key    = "dedicated"
-      value  = "keycloak"
-      effect = "NO_SCHEDULE"
-    }
-  }
+  selectors = [{
+    namespace = "keycloak"
+  }]
 }
 
 resource "null_resource" "keycloak_build" {
@@ -131,6 +113,7 @@ metadata:
   name: keycloak-config
   namespace: keycloak
 data:
+  TZ: "America/Sao_Paulo"
   KC_PROXY: "edge"
   KC_HTTP_PORT: "8080"
   KC_HEALTH_ENABLED: "true"
@@ -201,11 +184,6 @@ spec:
         app.kubernetes.io/instance: keycloak
         app.kubernetes.io/component: keycloak
     spec:
-      tolerations:
-      - key: "dedicated"
-        operator: "Equal"
-        value: "keycloak"
-        effect: "NoSchedule"
       containers:
         - name: keycloak
           image: ${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}

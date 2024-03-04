@@ -45,3 +45,8 @@ keycloak_client_id     = "kubernetes"
 keycloak_client_secret = "i6UJ40JCb71JvHk15f3pmABfNFsd570X"
 keycloak_host          = "sso.sambatech.net"
 keycloak_rds_username  = "keycloak"
+
+################################
+# SKYWALKING
+################################
+skywalking_username = "skywalking"

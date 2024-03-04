@@ -77,21 +77,40 @@ resource "aws_key_pair" "this" {
   public_key      = tls_private_key.this.public_key_openssh
 }
 
+resource "aws_iam_policy" "additional" {
+  name = "${var.cluster_name}-additional"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "ec2:Describe*",
+        ]
+        Effect   = "Allow"
+        Resource = "*"
+      },
+    ]
+  })
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.2"
 
-  cluster_name                     = var.cluster_name
-  vpc_id                           = data.aws_vpc.instance.id
-  subnet_ids                       = data.aws_subnets.query.ids
-  cluster_version                  = "1.29"
-  cluster_ip_family                = "ipv6"
-  enable_irsa                      = true
-  cluster_endpoint_public_access   = true
-  cluster_endpoint_private_access  = true
-  create_cni_ipv6_iam_policy       = true
-
+  cluster_name                             = var.cluster_name
+  vpc_id                                   = data.aws_vpc.instance.id
+  subnet_ids                               = data.aws_subnets.query.ids
+  cluster_version                          = "1.29"
+  cluster_ip_family                        = "ipv6"
+  enable_irsa                              = true
+  cluster_endpoint_public_access           = true
+  cluster_endpoint_private_access          = true
+  create_cni_ipv6_iam_policy               = true
   enable_cluster_creator_admin_permissions = true
+  # Fargate profiles use the cluster primary security group so these are not utilized
+  create_cluster_security_group            = false
+  create_node_security_group               = false
 
   # https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html
   cluster_addons = {
@@ -127,66 +146,32 @@ module "eks" {
     }
   }
 
-  # Extend cluster security group rules
-  cluster_security_group_additional_rules = {
-    ingress_nodes_ephemeral_ports_tcp = {
-      description                = "Nodes on ephemeral ports"
-      protocol                   = "tcp"
-      from_port                  = 1025
-      to_port                    = 65535
-      type                       = "ingress"
-      source_node_security_group = true
-    }
-  }
-
-  # Extend node-to-node security group rules
-  node_security_group_additional_rules = {
-    ingress_self_all = {
-      description = "Node to node all ports/protocols"
-      protocol    = "-1"
-      from_port   = 0
-      to_port     = 0
-      type        = "ingress"
-      self        = true
-    }
-  }
-
-  ##############################################
-  # EKS Managed Node Group(s)
-  ##############################################
-  eks_managed_node_group_defaults = {
-    ami_type                   = "AL2_x86_64"
-    # @see https://aws.amazon.com/pt/ec2/spot/instance-advisor/
-    # @see https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
-    instance_types             = ["t3a.small","t3.small","c7i.large","c6i.large","c5a.large","c6in.large","c5ad.large"]
-
-
-    # We are using the IRSA created below for permissions
-    # However, we have to deploy with the policy attached FIRST (when creating a fresh cluster)
-    # and then turn this off after the cluster/node group is created. Without this initial policy,
-    # the VPC CNI fails to assign IPs and nodes cannot join the cluster
-    # See https://github.com/aws/containers-roadmap/issues/1666 for more context
-    iam_role_attach_cni_policy            = true
-    iam_role_use_name_prefix              = false
-    attach_cluster_primary_security_group = true
-
+  fargate_profile_defaults = {
     iam_role_additional_policies = {
-      AmazonEBSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
-      AmazonEFSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
+      additional = aws_iam_policy.additional.arn
     }
   }
 
-  eks_managed_node_groups = {
-    # Default node group - as provided by AWS EKS
+  fargate_profiles = {
     default = {
-      capacity_type     = "SPOT"
-      # @see https://aws.amazon.com/pt/ec2/spot/instance-advisor/
-      # @see https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
-      instance_types    = ["t3a.small","t3.small","c7i.large","c6i.large","c5a.large","c6in.large","c5ad.large"]
-      disk_size         = 20
-      min_size          = 1
-      max_size          = 3
-      desired_size      = 1
+      selectors = [
+        { namespace = "default" }
+      ]
+    }
+    kube-system = {
+      selectors = [
+        { namespace = "kube-system" }
+      ]
+    }
+    kube-public = {
+      selectors = [
+        { namespace = "kube-public" }
+      ]
+    }
+    kube-node-lease = {
+      selectors = [
+        { namespace = "kube-node-lease" }
+      ]
     }
   }
 }

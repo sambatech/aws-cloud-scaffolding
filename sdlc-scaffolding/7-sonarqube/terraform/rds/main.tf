@@ -88,7 +88,7 @@ resource "aws_rds_cluster_instance" "instance" {
 
 resource "time_static" "tag" {
   triggers = {
-    run = "14/10/2023 14:13:00"
+    run = sha1(join("-", [aws_rds_cluster.database.master_username, aws_rds_cluster.database.master_password]))
   }
 }
 
