@@ -54,15 +54,17 @@ data "aws_eks_cluster_auth" "default" {
   name  = var.cluster_name
 }
 
-module "rds" {
-  source = "./rds"
+module "opensearch" {
+  source = "./opensearch"
 
-  rds_vpc_id              = data.aws_vpc.instance.id
-  rds_subnet_ids          = data.aws_subnets.query.ids
-  rds_subnets_cidr_blocks = [for s in data.aws_subnet.instance : s.cidr_block]
-  rds_ipv6_cidr_blocks    = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
-  rds_username            = var.skywalking_username
-  rds_availability_zones  = var.availability_zones
+  create              = true
+  aws_profile         = var.aws_profile
+  vpc_id              = data.aws_vpc.instance.id
+  subnets_ids         = data.aws_subnets.query.ids
+  subnets_cidr_blocks = [for s in data.aws_subnet.instance : s.cidr_block]
+  ipv6_cidr_blocks    = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
+  availability_zones  = var.availability_zones
+  skywalking_username = var.skywalking_username
 }
 
 module "deploy" {
@@ -72,7 +74,9 @@ module "deploy" {
   aws_region  = var.aws_region
 
   eks_cluster_name                       = var.cluster_name
+  cluster_ip_family                      = var.cluster_ip_family
   eks_cluster_version                    = data.aws_eks_cluster.default.version
+  eks_logging_policy_name                = var.cluster_logging_policy_name
   eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
   eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
   eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
@@ -86,7 +90,7 @@ module "deploy" {
 
   alb_name            = var.load_balancer_name
   waf_arn             = var.waf_arn
-  postgresql_host     = module.rds.out_database_hostname
-  postgresql_username = module.rds.out_database_username
-  postgresql_password = module.rds.out_database_password
+  opensearch_hostname = module.opensearch.out_hostname
+  opensearch_username = module.opensearch.out_username
+  opensearch_password = module.opensearch.out_password
 }

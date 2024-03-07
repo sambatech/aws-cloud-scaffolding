@@ -26,6 +26,10 @@ variable eks_cluster_auth_token {
 
 }
 
+variable cluster_ip_family {
+  
+}
+
 variable eks_subnet_ids {
 
 }
@@ -38,15 +42,19 @@ variable eks_cluster_security_group_ids {
   
 }
 
-variable postgresql_host {
+variable eks_logging_policy_name {
 
 }
 
-variable postgresql_username {
+variable opensearch_hostname {
 
 }
 
-variable postgresql_password {
+variable opensearch_username {
+
+}
+
+variable opensearch_password {
   
 }
 

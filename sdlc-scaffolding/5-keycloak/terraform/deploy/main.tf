@@ -19,6 +19,8 @@ provider "kubectl" {
 locals {
   admin_username = "KeycloakAdmin"
   sha1_hash = sha1(join("", [for f in fileset("", "${path.module}/docker/*") : filesha1(f)]))
+  prefer_ipv4_stack = "-Djava.net.preferIPv4Stack=${lower(var.cluster_ip_family) == "ipv4" ? "true" : "false"}"
+  prefer_ipv6_stack = "-Djava.net.preferIPv6Addresses=${lower(var.cluster_ip_family) == "ipv6" ? "true" : "false"}"
 }
 
 data "aws_caller_identity" "current" {}
@@ -39,7 +41,7 @@ module "eks_fargate-profile" {
   source  = "terraform-aws-modules/eks/aws//modules/fargate-profile"
   version = "~> 20.0"
 
-  name         = "keycloak"
+  name         = "keycloak-fargate"
   cluster_name = var.deploy_cluster_name
   subnet_ids   = var.deploy_subnet_ids
 
@@ -48,20 +50,29 @@ module "eks_fargate-profile" {
   }]
 }
 
+data "aws_iam_policy" "logging_policy" {
+  name = var.deploy_logging_policy_name
+}
+
+resource "aws_iam_role_policy_attachment" "logging_policy_attach" {
+  role       = module.eks_fargate-profile.iam_role_name
+  policy_arn = data.aws_iam_policy.logging_policy.arn
+}
+
 resource "null_resource" "keycloak_build" {
 	
-	  provisioner "local-exec" {
-	    command = <<EOF
-	    aws ecr get-login-password --region ${data.aws_region.current.name} --profile ${var.aws_profile} | docker login --username AWS --password-stdin \
+  provisioner "local-exec" {
+    command = <<-EOF
+      aws ecr get-login-password --region ${data.aws_region.current.name} --profile ${var.aws_profile} | docker login --username AWS --password-stdin \
         ${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com
-	    docker build -t "${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}" "${path.module}/docker"
-	    docker push "${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}"
-	    EOF
-	  }
-	
-	  triggers = {
-	    run = local.sha1_hash
-	  }
+      docker build -t "${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}" "${path.module}/docker"
+      docker push "${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}"
+    EOF
+  }
+
+  triggers = {
+    run = local.sha1_hash
+  }
 }
 
 resource "time_static" "suffix" {
@@ -93,12 +104,12 @@ EOF
 }
 
 resource "kubectl_manifest" "keycloak_namespace" {
-    yaml_body = <<YAML
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: keycloak
-YAML
+  yaml_body = <<-YAML
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: keycloak
+  YAML
 }
 
 #
@@ -106,52 +117,52 @@ YAML
 # https://github.com/bitnami/containers/blob/main/bitnami/keycloak/22/debian-11/rootfs/opt/bitnami/scripts/keycloak-env.sh
 #
 resource "kubectl_manifest" "keycloak_config_map" {
-    yaml_body = <<YAML
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: keycloak-config
-  namespace: keycloak
-data:
-  TZ: "America/Sao_Paulo"
-  KC_PROXY: "edge"
-  KC_HTTP_PORT: "8080"
-  KC_HEALTH_ENABLED: "true"
-  KC_CACHE: "ispn"
-  KC_CACHE_STACK: "kubernetes"
-  KC_HOSTNAME_STRICT: "false"
-  KC_HOSTNAME: "${var.keycloak_host}"
-  KC_HOSTNAME_ADMIN: "${var.keycloak_host}"
-  KC_DB: "postgres"
-  KC_DB_URL_HOST: "${var.deploy_jdbc_hostname}"
-  KC_DB_URL_PORT: "${var.deploy_jdbc_port}"
-  KC_DB_URL_DATABASE: "keycloak"
-  JAVA_OPTS_APPEND: "-Djgroups.dns.query=keycloak-headless.keycloak.svc.cluster.local -Dquarkus.transaction-manager.enable-recovery=true -Djava.net.preferIPv4Stack=false -Djava.net.preferIPv6Addresses=true -Dfile.encoding=UTF-8"
-YAML
+  yaml_body = <<-YAML
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: keycloak-config
+      namespace: keycloak
+    data:
+      TZ: "America/Sao_Paulo"
+      KC_PROXY: "edge"
+      KC_HTTP_PORT: "8080"
+      KC_HEALTH_ENABLED: "true"
+      KC_CACHE: "ispn"
+      KC_CACHE_STACK: "kubernetes"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME: "${var.keycloak_host}"
+      KC_HOSTNAME_ADMIN: "${var.keycloak_host}"
+      KC_DB: "postgres"
+      KC_DB_URL_HOST: "${var.deploy_jdbc_hostname}"
+      KC_DB_URL_PORT: "${var.deploy_jdbc_port}"
+      KC_DB_URL_DATABASE: "keycloak"
+      JAVA_OPTS_APPEND: "-Djgroups.dns.query=keycloak-headless.keycloak.svc.cluster.local -Dquarkus.transaction-manager.enable-recovery=true ${local.prefer_ipv4_stack} ${local.prefer_ipv6_stack} -Dfile.encoding=UTF-8"
+  YAML
 
-    depends_on = [
-        kubectl_manifest.keycloak_namespace
-    ]
+  depends_on = [
+      kubectl_manifest.keycloak_namespace
+  ]
 }
 
 resource "kubectl_manifest" "keycloak_secret" {
-    yaml_body = <<YAML
-apiVersion: v1
-kind: Secret
-metadata:
-  name: keycloak-secret
-  namespace: keycloak
-type: Opaque
-data:
-  KEYCLOAK_ADMIN: "${base64encode(local.admin_username)}"
-  KEYCLOAK_ADMIN_PASSWORD: "${base64encode(random_string.password.result)}"
-  KC_DB_USERNAME: "${base64encode(var.deploy_jdbc_username)}"
-  KC_DB_PASSWORD: "${base64encode(var.deploy_jdbc_password)}"
-YAML
+  yaml_body = <<-YAML
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: keycloak-secret
+      namespace: keycloak
+    type: Opaque
+    data:
+      KEYCLOAK_ADMIN: "${base64encode(local.admin_username)}"
+      KEYCLOAK_ADMIN_PASSWORD: "${base64encode(random_string.password.result)}"
+      KC_DB_USERNAME: "${base64encode(var.deploy_jdbc_username)}"
+      KC_DB_PASSWORD: "${base64encode(var.deploy_jdbc_password)}"
+  YAML
 
-    depends_on = [
-        kubectl_manifest.keycloak_namespace
-    ]
+  depends_on = [
+      kubectl_manifest.keycloak_namespace
+  ]
 }
 
 resource "kubectl_manifest" "keycloak_stateful_set" {
@@ -184,6 +195,11 @@ spec:
         app.kubernetes.io/instance: keycloak
         app.kubernetes.io/component: keycloak
     spec:
+      tolerations:
+      - key: "eks.amazonaws.com/compute-type"
+        operator: "Equal"
+        value: "fargate"
+        effect: "NoSchedule"
       containers:
         - name: keycloak
           image: ${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}
@@ -206,11 +222,11 @@ spec:
               name: keycloak-secret
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
+              cpu: "500m"
+              memory: "1000Mi"
             limits:
-              memory: "1024Mi"
               cpu: "1000m"
+              memory: "1000Mi"
           ports:
             - name: http
               containerPort: 8080
@@ -223,23 +239,23 @@ spec:
               scheme: HTTP
               path: /health/started
               port: http
-            initialDelaySeconds: 30
+            initialDelaySeconds: 90
             periodSeconds: 10
             failureThreshold: 24
-            timeoutSeconds: 1
+            timeoutSeconds: 2
           readinessProbe:
             failureThreshold: 3
             initialDelaySeconds: 30
             periodSeconds: 10
             successThreshold: 1
-            timeoutSeconds: 1
+            timeoutSeconds: 2
             httpGet:
               scheme: HTTP
               path: /health/ready
               port: http
           livenessProbe:
             failureThreshold: 3
-            initialDelaySeconds: 300
+            initialDelaySeconds: 30
             periodSeconds: 1
             successThreshold: 1
             timeoutSeconds: 5

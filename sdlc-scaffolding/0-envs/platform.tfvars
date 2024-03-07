@@ -11,6 +11,9 @@ iam_federated_role_name  = "arn:aws:iam::021847444320:role/AWSReservedSSO_Admini
 ################################
 # VPC
 ################################
+## is always ipv6 - text here only for information
+vpc_ip_family        = "ipv6"
+
 creation_enabled     = false
 vpc_name             = "platform"
 cidr_block           = "10.0.128.0/18"
@@ -21,8 +24,11 @@ availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
 ################################
 # EKS
 ################################
-cluster_name        = "platform-cluster"
-repository_name     = "platform-engineering"
+## This variable defines a series of conditional setup for app, but not for databases
+cluster_ip_family           = "ipv4" # or ipv6
+cluster_name                = "platform-cluster"
+repository_name             = "platform-engineering"
+cluster_logging_policy_name = "platform-cluster-logging-policy"
 
 ################################
 # ALB
@@ -41,8 +47,8 @@ sonarqube_username = "sonarqube"
 # KEYCLOAK
 ################################
 keycloak_realm_name    = "samba"
-keycloak_client_id     = "kubernetes"
-keycloak_client_secret = "i6UJ40JCb71JvHk15f3pmABfNFsd570X"
+keycloak_client_id     = "terraform"
+keycloak_client_secret = "FKiQNdJqu9ePPTY5QaYYS4zA8sa15wle"
 keycloak_host          = "sso.sambatech.net"
 keycloak_rds_username  = "keycloak"
 

@@ -3,9 +3,9 @@ locals {
   elk_domain = "${local.common_prefix}-elk-domain"
 }
 
-data "aws_region" "current" {}
-
 data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
 
 resource "random_string" "password" {
   length      = 32
@@ -51,6 +51,8 @@ resource "aws_iam_service_linked_role" "role" {
 }
 
 resource "aws_opensearch_domain" "domain" {
+  count = var.create ? 1 : 0
+
   domain_name    = local.elk_domain
   engine_version = "OpenSearch_2.11"
 

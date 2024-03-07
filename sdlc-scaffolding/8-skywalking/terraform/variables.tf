@@ -22,6 +22,10 @@ variable cluster_name {
   
 }
 
+variable cluster_ip_family {
+
+}
+
 variable skywalking_username {
 
 }
@@ -32,4 +36,8 @@ variable load_balancer_name {
 
 variable waf_arn {
     description = "value of the WAF ARN"
+}
+
+variable cluster_logging_policy_name {
+  
 }

@@ -20,6 +20,9 @@ provider "kubectl" {
   load_config_file       = false
 }
 
+#
+# SonarQube must run over a Managed Node Group because of priviled access permission to change some OS attribute
+#
 module "eks_managed_node_group" {
   source  = "terraform-aws-modules/eks/aws//modules/eks-managed-node-group"
   version = "~> 20.0"

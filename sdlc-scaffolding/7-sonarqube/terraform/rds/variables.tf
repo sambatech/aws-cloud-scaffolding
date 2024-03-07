@@ -25,3 +25,8 @@ variable rds_availability_zones {
     description = "value of the RDS availability zones"
     type = list
 }
+
+variable rds_create_from_snapshot {
+    description = "Create database from the final snapshot"
+    type        = bool
+}

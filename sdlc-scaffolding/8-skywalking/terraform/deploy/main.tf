@@ -16,49 +16,22 @@ provider "kubectl" {
   load_config_file       = false
 }
 
-provider "helm" {
-  kubernetes {
-    host                   = var.eks_cluster_endpoint
-    cluster_ca_certificate = var.eks_cluster_certificate_authority_data
-    token                  = var.eks_cluster_auth_token
-  }
-
-  registry {
-    url = "oci://registry-1.docker.io"
-    username = "sambatech20"
-    password = "HPqWPbxx2XPcSEA"
-  }
+locals {
+  prefer_ipv4_stack = "-Djava.net.preferIPv4Stack=${lower(var.cluster_ip_family) == "ipv4" ? "true" : "false"}"
+  prefer_ipv6_stack = "-Djava.net.preferIPv6Addresses=${lower(var.cluster_ip_family) == "ipv6" ? "true" : "false"}"
 }
 
-module "eks_managed_node_group" {
-  source  = "terraform-aws-modules/eks/aws//modules/eks-managed-node-group"
+module "eks_fargate-profile" {
+  source  = "terraform-aws-modules/eks/aws//modules/fargate-profile"
   version = "~> 20.0"
 
-  name            = "skywalking"
-  cluster_name    = var.eks_cluster_name
-  cluster_version = var.eks_cluster_version
+  name         = "skywalking-fargate"
+  cluster_name = var.eks_cluster_name
+  subnet_ids   = var.eks_subnet_ids
 
-  subnet_ids                        = var.eks_subnet_ids
-  cluster_primary_security_group_id = var.eks_cluster_primary_security_group_id
-  vpc_security_group_ids            = var.eks_cluster_security_group_ids
-
-  capacity_type  = "SPOT"
-  ami_type       = "AL2_x86_64"
-  # @see https://aws.amazon.com/pt/ec2/spot/instance-advisor/
-  # @see https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
-  instance_types = ["t3.medium", "t3a.medium"]
-
-  min_size     = 1
-  desired_size = 5
-  max_size     = 10
-
-  taints = {
-    dedicated = {
-      key    = "dedicated"
-      value  = "skywalking"
-      effect = "NO_SCHEDULE"
-    }
-  }
+  selectors = [{
+    namespace = "skywalking"
+  }]
 }
 
 data "aws_acm_certificate" "eks_certificate" {
@@ -67,24 +40,456 @@ data "aws_acm_certificate" "eks_certificate" {
   most_recent = true
 }
 
-data "template_file" "helm_values_template" {
-  template = file("${path.module}/templates/values.yaml")
-  vars = {
-    UI_LOADBALANCER_NAME = var.alb_name
-    UI_WAFV2_ACL_ARN     = var.waf_arn
-    UI_CERTIFICATE_ARN   = data.aws_acm_certificate.eks_certificate.arn
-    POSTGRESQL_HOST      = var.postgresql_host
-    POSTGRESQL_USERNAME  = var.postgresql_username
-    POSTGRESQL_PASSWORD  = var.postgresql_password
-  }
+data "aws_iam_policy" "logging_policy" {
+  name = var.eks_logging_policy_name
 }
 
-resource "helm_release" "skywalking" {
-  name             = "skywalking"
-  namespace        = "skywalking"
-  create_namespace = true
-  repository       = "oci://registry-1.docker.io/apache/skywalking-helm"
-  chart            = "skywalking"
-  version          = "4.5.0"
-  values           = [data.template_file.helm_values_template.rendered]
+resource "aws_iam_role_policy_attachment" "logging_policy_attach" {
+  role       = module.eks_fargate-profile.iam_role_name
+  policy_arn = data.aws_iam_policy.logging_policy.arn
+}
+
+###########################################################################
+# Os recursos abaixo foram criados com o uso do comando:
+# helm template local oci://registry-1.docker.io/apache/skywalking-helm \
+#     --version 4.5.0 -f ./8-skywalking/terraform/deploy/templates/values.yaml > output.yaml
+#
+# MOTIVO: Usar o provider "helm" e o resource "helm_release" causavam o erro
+#         Error: could not download chart: pull access denied, repository 
+#                does not exist or may require authorization: server message: 
+#                insufficient_scope: authorization failed
+###########################################################################
+
+resource "kubectl_manifest" "skywalking_namespace" {
+  yaml_body = <<-YAML
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: skywalking
+  YAML
+}
+
+resource "kubectl_manifest" "skywalking_service_account" {
+  yaml_body = <<-YAML
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    namespace: skywalking
+    name: skywalking-service-account
+    labels:
+      app: skywalking
+      release: samba
+      component: oap
+  YAML
+
+  depends_on = [
+    kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_cluster_role" {
+  yaml_body = <<-YAML
+  kind: ClusterRole
+  apiVersion: rbac.authorization.k8s.io/v1
+  metadata:
+    name: skywalking-cluster-role
+    labels:
+      app: skywalking
+      release: samba
+  rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "endpoints", "services", "nodes", "namespaces", "configmaps"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["extensions"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["networking.istio.io"]
+    resources: ["serviceentries"]
+    verbs: ["get", "watch", "list"]
+  YAML
+
+  depends_on = [
+    kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_cluster_role_binding" {
+  yaml_body = <<-YAML
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRoleBinding
+  metadata:
+    name: skywalking-cluster-role-binding
+    labels:
+      app: skywalking
+      release: samba
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: skywalking-cluster-role
+  subjects:
+  - kind: ServiceAccount
+    name: skywalking-service-account
+    namespace: skywalking
+  YAML
+
+  depends_on = [
+    kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_role" {
+  yaml_body = <<-YAML
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  metadata:
+    namespace: skywalking
+    name: skywalking-role
+    labels:
+      app: skywalking
+      release: samba
+  rules:
+    - apiGroups: [""]
+      resources: ["pods","configmaps"]
+      verbs: ["get", "watch", "list"]
+  YAML
+
+  depends_on = [
+    kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_role_binding" {
+  yaml_body = <<-YAML
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: RoleBinding
+  metadata:
+    namespace: skywalking
+    name: skywalking-role-binding
+    labels:
+      app: skywalking
+      release: samba
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: Role
+    name: skywalking-role
+  subjects:
+    - kind: ServiceAccount
+      name: skywalking-service-account
+      namespace: skywalking
+  YAML
+
+  depends_on = [
+    kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_config_map_oap" {
+  yaml_body = <<-YAML
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    namespace: skywalking
+    name: skywalking-config-oap
+  data:
+    SW_CLUSTER: "kubernetes"
+    SW_CLUSTER_K8S_NAMESPACE: "skywalking"
+    SW_CLUSTER_K8S_LABEL: "app=skywalking,release=samba,component=oap"
+    SW_STORAGE: "elasticsearch"
+    SW_STORAGE_ES_HTTP_PROTOCOL: "https"
+    SW_STORAGE_ES_CLUSTER_NODES: "${var.opensearch_hostname}:443"
+  YAML
+
+  depends_on = [
+    kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_secret_oap" {
+  yaml_body = <<-YAML
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    namespace: skywalking
+    name: skywalking-secret-oap
+  type: Opaque
+  data:
+    SW_ES_USER: "${base64encode(var.opensearch_username)}"
+    SW_ES_PASSWORD: "${base64encode(var.opensearch_password)}"
+  YAML
+
+  depends_on = [
+      kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_oap_init_job" {
+  yaml_body = <<-YAML
+  apiVersion: batch/v1
+  kind: Job
+  metadata:
+    namespace: skywalking
+    name: oap-job-init
+    labels:
+      app: oap-job-init
+      component: job
+      release: samba
+  spec:
+    ttlSecondsAfterFinished: 100
+    template:
+      metadata:
+        name: oap-job-init
+        labels:
+          app: oap-job-init
+          component: job
+          release: samba
+      spec:
+        serviceAccountName: skywalking-service-account
+        tolerations:
+        - key: "eks.amazonaws.com/compute-type"
+          operator: "Equal"
+          value: "fargate"
+          effect: "NoSchedule"
+        restartPolicy: Never
+        containers:
+        - name: oap-job-init
+          image: skywalking.docker.scarf.sh/apache/skywalking-oap-server:9.2.0
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: JAVA_OPTS
+            value: "${local.prefer_ipv4_stack} ${local.prefer_ipv6_stack} -Xmx3g -Xms2g -Dmode=init"
+          - name: SKYWALKING_COLLECTOR_UID
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.uid
+          envFrom:
+          - configMapRef:
+              name: skywalking-config-oap
+          - secretRef:
+              name: skywalking-secret-oap
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2000Mi"
+            limits:
+              cpu: "1000m"
+              memory: "4000Mi"
+  YAML
+
+  depends_on = [
+      kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_oap_deployment" {
+  yaml_body = <<-YAML
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    namespace: skywalking
+    name: skywalking-oap
+    labels:
+      app: skywalking
+      release: samba
+      component: oap
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: skywalking
+        release: samba
+        component: oap
+    template:
+      metadata:
+        labels:
+          app: skywalking
+          release: samba
+          component: oap
+      spec:
+        serviceAccountName: skywalking-service-account
+        tolerations:
+        - key: "eks.amazonaws.com/compute-type"
+          operator: "Equal"
+          value: "fargate"
+          effect: "NoSchedule"
+        containers:
+        - name: oap
+          image: skywalking.docker.scarf.sh/apache/skywalking-oap-server:9.2.0
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 11800
+            name: grpc
+          - containerPort: 12800
+            name: rest
+          livenessProbe:
+            tcpSocket:
+              port: 12800
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          startupProbe:
+            tcpSocket:
+              port: 12800
+            failureThreshold: 9
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 12800
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          env:
+          - name: JAVA_OPTS
+            value: "${local.prefer_ipv4_stack} ${local.prefer_ipv6_stack} -Dmode=no-init -Xmx2g -Xms2g"
+          - name: SKYWALKING_COLLECTOR_UID
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.uid
+          envFrom:
+          - configMapRef:
+              name: skywalking-config-oap
+          - secretRef:
+              name: skywalking-secret-oap
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2000Mi"
+            limits:
+              cpu: "2000m"
+              memory: "3000Mi"
+  YAML
+
+  depends_on = [
+      kubectl_manifest.skywalking_namespace,
+      kubectl_manifest.skywalking_config_map_oap,
+      kubectl_manifest.skywalking_secret_oap,
+      kubectl_manifest.skywalking_oap_init_job
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_oap_service" {
+  yaml_body = <<-YAML
+  apiVersion: v1
+  kind: Service
+  metadata:
+    namespace: skywalking
+    name: skywalking-oap
+    labels:
+      app: skywalking
+      release: samba
+      component: oap
+  spec:
+    type: ClusterIP
+    ports:
+    - port: 11800
+      name: grpc
+    - port: 12800
+      name: rest
+    selector:
+      app: skywalking
+      release: samba
+      component: oap
+  YAML
+
+  depends_on = [
+      kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_config_map_ui" {
+  yaml_body = <<-YAML
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    namespace: skywalking
+    name: skywalking-config-ui
+  data:
+    SW_OAP_ADDRESS: "http://skywalking-oap:12800"
+  YAML
+
+  depends_on = [
+    kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_ui_deployment" {
+  yaml_body = <<-YAML
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    namespace: skywalking
+    name: skywalking-ui
+    labels:
+      app: skywalking
+      release: samba
+      component: ui
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: skywalking
+        release: samba
+        component: ui
+    template:
+      metadata:
+        labels:
+          app: skywalking
+          release: samba
+          component: ui
+      spec:
+        tolerations:
+        - key: "eks.amazonaws.com/compute-type"
+          operator: "Equal"
+          value: "fargate"
+          effect: "NoSchedule"
+        containers:
+        - name: ui
+          image: skywalking.docker.scarf.sh/apache/skywalking-ui:9.2.0
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 8080
+            name: page
+          envFrom:
+          - configMapRef:
+              name: skywalking-config-ui
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1000Mi"
+            limits:
+              cpu: "1000m"
+              memory: "2000Mi"
+  YAML
+
+  depends_on = [
+      kubectl_manifest.skywalking_namespace,
+      kubectl_manifest.skywalking_config_map_ui
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_ui_service" {
+  yaml_body = <<-YAML
+  apiVersion: v1
+  kind: Service
+  metadata:
+    namespace: skywalking
+    labels:
+      app: skywalking
+      release: samba
+      component: ui
+    name: skywalking-ui
+  spec:
+    type: ClusterIP
+    ports:
+      - port: 80
+        targetPort: 8080
+        protocol: TCP
+    selector:
+      app: skywalking
+      release: samba
+      component: ui
+  YAML
+
+  depends_on = [
+      kubectl_manifest.skywalking_namespace
+  ]
 }

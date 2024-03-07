@@ -57,12 +57,13 @@ data "aws_eks_cluster_auth" "default" {
 module "rds" {
   source = "./rds"
 
-  rds_vpc_id              = data.aws_vpc.instance.id
-  rds_subnet_ids          = data.aws_subnets.query.ids
-  rds_subnets_cidr_blocks = [for s in data.aws_subnet.instance : s.cidr_block]
-  rds_ipv6_cidr_blocks    = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
-  rds_username            = var.keycloak_rds_username
-  rds_availability_zones  = var.availability_zones
+  rds_vpc_id               = data.aws_vpc.instance.id
+  rds_subnet_ids           = data.aws_subnets.query.ids
+  rds_subnets_cidr_blocks  = [for s in data.aws_subnet.instance : s.cidr_block]
+  rds_ipv6_cidr_blocks     = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
+  rds_username             = var.keycloak_rds_username
+  rds_availability_zones   = var.availability_zones
+  rds_create_from_snapshot = false
 }
 
 module "deploy" {
@@ -71,11 +72,14 @@ module "deploy" {
   aws_profile                                   = var.aws_profile
   keycloak_host                                 = var.keycloak_host
 
+  cluster_ip_family                             = var.cluster_ip_family
+  
   deploy_waf_arn                                = var.waf_arn
   repository_name                               = var.repository_name
   deploy_alb_name                               = var.load_balancer_name
   deploy_cluster_name                           = data.aws_eks_cluster.default.name
   deploy_cluster_version                        = data.aws_eks_cluster.default.version
+  deploy_logging_policy_name                    = var.cluster_logging_policy_name
 
   deploy_cluster_primary_security_group_id      = data.aws_eks_cluster.default.vpc_config.0.cluster_security_group_id
   deploy_cluster_security_group_ids             = flatten([

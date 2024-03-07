@@ -102,7 +102,7 @@ module "eks" {
   vpc_id                                   = data.aws_vpc.instance.id
   subnet_ids                               = data.aws_subnets.query.ids
   cluster_version                          = "1.29"
-  cluster_ip_family                        = "ipv6"
+  cluster_ip_family                        = lower(var.cluster_ip_family) == "ipv4" ? "ipv4" : "ipv6"
   enable_irsa                              = true
   cluster_endpoint_public_access           = true
   cluster_endpoint_private_access          = true
@@ -121,6 +121,19 @@ module "eks" {
         create = "25m"
         delete = "10m"
       }
+      configuration_values = jsonencode({
+        computeType = "Fargate"
+        resources = {
+          limits = {
+            cpu = "0.25"
+            memory = "256M"
+          }
+          requests = {
+            cpu = "0.25"
+            memory = "256M"
+          }
+        }
+      })
     }
     kube-proxy = {
       most_recent = true
@@ -152,27 +165,76 @@ module "eks" {
     }
   }
 
+  eks_managed_node_groups = {
+    # Node group used only by addons, because some of them doesn't support fargate profiles
+    cluster_addons = {
+      capacity_type     = "SPOT"
+      
+      # @see https://aws.amazon.com/pt/ec2/spot/instance-advisor/
+      # @see https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
+      #
+      # You need to use this command to discover the instance types
+      #
+      # aws --profile platform --region us-east-1 ec2 describe-instance-types \
+      #    --filters "Name=supported-usage-class,Values=spot" "Name=hypervisor,Values=nitro" "Name=bare-metal,Values=false" "Name=processor-info.supported-architecture,Values=x86_64" \
+      #    --query "InstanceTypes" \
+      #    --output json | jq ".[] | [.VCpuInfo.DefaultVCpus, .VCpuInfo.DefaultCores, .MemoryInfo.SizeInMiB, .InstanceType] | @csv" | sort
+      #
+
+      instance_types    = ["t3.small", "t3a.small", "t3.medium", "t3a.medium"]
+      disk_size         = 20
+      min_size          = 3
+      max_size          = 10
+      desired_size      = 3
+    }
+  }
+
+  # See https://docs.aws.amazon.com/eks/latest/userguide/fargate-pod-configuration.html
   fargate_profiles = {
-    default = {
+    default-fargate = {
       selectors = [
         { namespace = "default" }
       ]
     }
-    kube-system = {
-      selectors = [
-        { namespace = "kube-system" }
-      ]
-    }
-    kube-public = {
-      selectors = [
-        { namespace = "kube-public" }
-      ]
-    }
-    kube-node-lease = {
-      selectors = [
-        { namespace = "kube-node-lease" }
-      ]
-    }
+  }
+}
+
+data "aws_eks_cluster" "default" {
+  name = module.eks.cluster_name
+}
+
+data "aws_eks_cluster_auth" "default" {
+  name = module.eks.cluster_name
+}
+
+provider "kubernetes" {
+  host                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  cluster_ca_certificate = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  token                  = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
+}
+
+# @see https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/config_map_v1_data
+resource "kubernetes_config_map_v1_data" "aws_auth" {
+  force = true
+
+  data = {
+    "mapRoles" = <<-EOT
+      - groups:
+        - system:masters
+        rolearn: ${var.iam_federated_role_name}
+        username: AWSReservedSSO-AdministratorAccess-Role
+      - groups:
+        - system:bootstrappers
+        - system:nodes
+        - system:node-proxier
+        rolearn: arn:aws:iam::021847444320:role/default-fargate-20240306114145114700000006
+        username: system:node:{{SessionName}}
+    EOT
+  }
+
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
   }
 }
 
@@ -180,10 +242,10 @@ module "vpc_cni_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version = "~> 5.30"
 
-  role_name_prefix               = "VPC-CNI-IRSA"
+  role_name_prefix               = "AmazonEKSVPCCNIRole-"
   attach_vpc_cni_policy          = true
-  vpc_cni_enable_ipv6            = true
   vpc_cni_enable_ipv4            = true
+  vpc_cni_enable_ipv6            = true
 
   oidc_providers = {
     main = {

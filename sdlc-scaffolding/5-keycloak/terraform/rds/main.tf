@@ -45,6 +45,13 @@ resource "aws_db_subnet_group" "default" {
   }
 }
 
+data "aws_db_cluster_snapshot" "final_snapshot" {
+  count                 = var.rds_create_from_snapshot ? 1 : 0
+
+  db_cluster_identifier = "keycloak-cluster-final-snapshot"
+  most_recent           = true
+}
+
 resource "aws_rds_cluster" "database" {
   cluster_identifier     = "keycloak-cluster"
   database_name          = "keycloak"
@@ -53,13 +60,19 @@ resource "aws_rds_cluster" "database" {
   engine_version         = "15"
   network_type           = "DUAL"
 
-  skip_final_snapshot    = true
   db_subnet_group_name   = aws_db_subnet_group.default.name
   vpc_security_group_ids = [aws_security_group.instance.id]
   availability_zones     = var.rds_availability_zones
 
   master_username        = var.rds_username
   master_password        = random_string.password.result
+
+  backup_retention_period = 7
+  preferred_backup_window = "02:00-04:00"
+
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "keycloak-cluster-final-snapshot"
+  snapshot_identifier       = var.rds_create_from_snapshot ? data.aws_db_cluster_snapshot.final_snapshot.0.id : null
 
   serverlessv2_scaling_configuration {
     min_capacity = 0.5

@@ -68,23 +68,15 @@ provider "kubernetes" {
   token                  = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
 }
 
-# @see https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/config_map_v1_data
-resource "kubernetes_config_map_v1_data" "aws_auth" {
-  force = false
+module "log" {
+  source = "./log"
 
-  data = {
-    "mapRoles" = <<-EOT
-      - groups:
-        - system:masters
-        rolearn: ${var.iam_federated_role_name}
-        username: AWSReservedSSO-AdministratorAccess-Role
-    EOT
-  }
-
-  metadata {
-    name             = "aws-auth"
-    namespace        = "kube-system"
-  }
+  log_cluster_name                           = var.cluster_name
+  log_logging_policy_name                    = var.cluster_logging_policy_name
+  log_subnet_ids                             = data.aws_subnets.query.ids
+  log_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
+  log_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
+  log_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
 }
 
 module "efs" {

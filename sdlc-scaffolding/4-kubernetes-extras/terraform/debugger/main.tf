@@ -48,40 +48,45 @@ resource "null_resource" "docker_packaging" {
 }
 
 resource "kubectl_manifest" "debugger_deployment" {
-    yaml_body = <<YAML
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: debugger-deployment
-  namespace: default
-  labels:
-    app: debugger
-spec:
-  replicas: 1
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
+  yaml_body = <<-YAML
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: debugger-deployment
+    namespace: default
+    labels:
       app: debugger
-  template:
-    metadata:
-      labels:
+  spec:
+    replicas: 1
+    strategy:
+      type: Recreate
+    selector:
+      matchLabels:
         app: debugger
-    spec:
-      containers:
-      - name: debugger
-        image: ${var.registry_url}:debugger-v${time_static.tag.unix}
-        imagePullPolicy: IfNotPresent
-        resources:
-          requests:
-            memory: "32Mi"
-            cpu: "250m"
-          limits:
-            memory: "128Mi"
-            cpu: "500m"
-YAML
+    template:
+      metadata:
+        labels:
+          app: debugger
+      spec:
+        tolerations:
+        - key: "eks.amazonaws.com/compute-type"
+          operator: "Equal"
+          value: "fargate"
+          effect: "NoSchedule"
+        containers:
+        - name: debugger
+          image: ${var.registry_url}:debugger-v${time_static.tag.unix}
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "500Mi"
+            limits:
+              cpu: "500m"
+              memory: "1000Mi"
+  YAML
 
-    depends_on = [
-        null_resource.docker_packaging
-    ]
+  depends_on = [
+      null_resource.docker_packaging
+  ]
 }

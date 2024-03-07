@@ -14,6 +14,10 @@ variable cluster_name {
   description = "The name of the EKS cluster"
 }
 
+variable cluster_logging_policy_name {
+
+}
+
 variable iam_federated_role_name {
   description = "The ARN of the IAM role to assume"
 }

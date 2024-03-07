@@ -10,6 +10,14 @@ variable cluster_name {
     description = "The EKS Cluster name"
 }
 
+variable cluster_ip_family {
+
+}
+
+variable cluster_logging_policy_name {
+
+}
+
 variable cidr_block {
 
 }

@@ -1,3 +1,11 @@
+variable create {
+    type = bool
+}
+
+variable aws_profile {
+
+}
+
 variable vpc_id {
 
 }

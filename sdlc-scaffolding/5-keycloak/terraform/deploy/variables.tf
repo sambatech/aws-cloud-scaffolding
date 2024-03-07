@@ -39,12 +39,20 @@ variable deploy_cluster_version {
 
 }
 
+variable cluster_ip_family {
+
+}
+
 variable deploy_cluster_primary_security_group_id {
 
 }
 
 variable deploy_cluster_security_group_ids {
 
+}
+
+variable deploy_logging_policy_name {
+    
 }
 
 variable deploy_jdbc_username {

@@ -57,12 +57,13 @@ data "aws_eks_cluster_auth" "default" {
 module "rds" {
   source = "./rds"
 
-  rds_vpc_id              = data.aws_vpc.instance.id
-  rds_subnet_ids          = data.aws_subnets.query.ids
-  rds_subnets_cidr_blocks = [for s in data.aws_subnet.instance : s.cidr_block]
-  rds_ipv6_cidr_blocks    = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
-  rds_username            = var.sonarqube_username
-  rds_availability_zones  = var.availability_zones
+  rds_vpc_id               = data.aws_vpc.instance.id
+  rds_subnet_ids           = data.aws_subnets.query.ids
+  rds_subnets_cidr_blocks  = [for s in data.aws_subnet.instance : s.cidr_block]
+  rds_ipv6_cidr_blocks     = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
+  rds_username             = var.sonarqube_username
+  rds_availability_zones   = var.availability_zones
+  rds_create_from_snapshot = false
 }
 
 module "deploy" {
