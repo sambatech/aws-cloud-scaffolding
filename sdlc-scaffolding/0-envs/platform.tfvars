@@ -25,16 +25,17 @@ availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
 # EKS
 ################################
 ## This variable defines a series of conditional setup for app, but not for databases
-cluster_ip_family           = "ipv4" # or ipv6
-cluster_name                = "platform-cluster"
-repository_name             = "platform-engineering"
-cluster_logging_policy_name = "platform-cluster-logging-policy"
+cluster_ip_family                       = "ipv4" # or ipv6
+cluster_name                            = "platform-cluster"
+repository_name                         = "platform-engineering"
+cluster_logging_policy_name             = "platform-cluster-logging-policy"
+ingress_controller_service_account_name = "aws-load-balancer-controller"
 
 ################################
 # ALB
 ################################
 load_balancer_name  = "platform"
-waf_arn             = "arn:aws:wafv2:us-east-1:021847444320:regional/webacl/platform-cluster-web-acl/5c3bf15a-78e1-4621-b95f-ac6ad00dd641"
+waf_arn             = "arn:aws:wafv2:us-east-1:021847444320:regional/webacl/platform-cluster-web-acl/90982f4c-26ba-48a1-8ef0-e8972b923cac"
 
 ################################
 # SOANRQUBEs
@@ -48,11 +49,12 @@ sonarqube_username = "sonarqube"
 ################################
 keycloak_realm_name    = "samba"
 keycloak_client_id     = "terraform"
-keycloak_client_secret = "FKiQNdJqu9ePPTY5QaYYS4zA8sa15wle"
+keycloak_client_secret = "mLYLMCXsdARdPOQioqH77fLL1kbmzoIl"
 keycloak_host          = "sso.sambatech.net"
 keycloak_rds_username  = "keycloak"
 
 ################################
 # SKYWALKING
 ################################
+skywalking_host     = "apm.sambatech.net"
 skywalking_username = "skywalking"

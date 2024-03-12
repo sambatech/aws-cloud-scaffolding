@@ -18,8 +18,6 @@ output "b_module_config_notice" {
     * CONFIG NOTICE
     ****************************************
 
-    EKS cluster name....: ${var.cluster_name}
-    EKS fargate profiles: ${jsonencode(module.eks.fargate_profiles)}
-  
+    None
   EOF
 }

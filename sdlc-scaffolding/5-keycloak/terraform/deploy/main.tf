@@ -282,8 +282,7 @@ metadata:
     app.kubernetes.io/instance: keycloak
     app.kubernetes.io/component: keycloak
 spec:
-  type: ClusterIP
-  clusterIP: None
+  type: NodePort
   ports:
     - name: http
       port: 8080

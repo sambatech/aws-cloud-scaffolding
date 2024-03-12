@@ -1,7 +1,3 @@
-locals {
-  ingress_controller_service_account_name = "aws-load-balancer-controller"
-}
-
 terraform {
   required_version = ">= 0.13"
 
@@ -330,7 +326,7 @@ data "aws_iam_policy_document" "assume_role" {
         condition {
             test     = "StringEquals"
             variable = "oidc.eks.${data.aws_region.current.name}.amazonaws.com/id/${substr(var.oidc_provider_arn, -32, -1)}:sub"
-            values = ["system:serviceaccount:kube-system:${local.ingress_controller_service_account_name}"]
+            values = ["system:serviceaccount:kube-system:${var.ingress_controller_service_account_name}"]
         }
     }
 }
@@ -346,18 +342,18 @@ resource "aws_iam_role_policy_attachment" "role_policy_attachment" {
 }
 
 resource "kubectl_manifest" "ingress_controller_service_account" {
-    yaml_body = <<YAML
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  labels:
-    app.kubernetes.io/component: controller
-    app.kubernetes.io/name: ${local.ingress_controller_service_account_name}
-  name: ${local.ingress_controller_service_account_name}
-  namespace: kube-system
-  annotations:
-    eks.amazonaws.com/role-arn: ${aws_iam_role.eks_load_balancer_controller_role.arn}
-YAML
+  yaml_body = <<-YAML
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: ${var.ingress_controller_service_account_name}
+      name: ${var.ingress_controller_service_account_name}
+      namespace: kube-system
+      annotations:
+        eks.amazonaws.com/role-arn: ${aws_iam_role.eks_load_balancer_controller_role.arn}
+  YAML
 }
 
 ########################################################################################
@@ -365,10 +361,11 @@ YAML
 ########################################################################################
 
 resource "helm_release" "aws_load_balancer_controller" {
-  name       = "${local.ingress_controller_service_account_name}"
-  repository = "https://aws.github.io/eks-charts"
-  chart      = "aws-load-balancer-controller"
-  namespace  = "kube-system"
+  name         = "${var.ingress_controller_service_account_name}"
+  repository   = "https://aws.github.io/eks-charts"
+  chart        = "aws-load-balancer-controller"
+  namespace    = "kube-system"
+  force_update = true
 
   set {
     name  = "clusterName"
@@ -392,8 +389,15 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "serviceAccount.name"
-    value = "${local.ingress_controller_service_account_name}"
+    value = "${var.ingress_controller_service_account_name}"
   }
 
-  depends_on = [ kubectl_manifest.ingress_controller_service_account ]
+  set {
+    name  = "clusterSecretsPermissions.allowAllSecrets"
+    value = "true"
+  }
+
+  depends_on = [ 
+    kubectl_manifest.ingress_controller_service_account
+  ]
 }

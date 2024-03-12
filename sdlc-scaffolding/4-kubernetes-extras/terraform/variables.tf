@@ -29,3 +29,7 @@ variable vpc_name {
 variable cidr_block {
   description = "value of the EKS cluster CIDR blocks"
 }
+
+variable ingress_controller_service_account_name {
+  
+}

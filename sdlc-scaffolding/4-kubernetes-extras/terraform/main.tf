@@ -108,6 +108,7 @@ module "ingress-controller" {
   eks_cluster_name  = var.cluster_name
   eks_vpc_id        = data.aws_vpc.instance.id
   oidc_provider_arn = data.aws_iam_openid_connect_provider.instance.arn
+  ingress_controller_service_account_name = var.ingress_controller_service_account_name
 
   eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
   eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))

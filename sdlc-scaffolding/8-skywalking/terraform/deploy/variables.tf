@@ -58,10 +58,34 @@ variable opensearch_password {
   
 }
 
+variable skywalking_host {
+  
+}
+
 variable alb_name {
     description = "value of the ALB name"
 }
 
 variable waf_arn {
     description = "value"
+}
+
+variable ingress_controller_service_account_name {
+
+}
+
+variable keycloak_host {
+  
+}
+
+variable keycloak_client_id {
+
+}
+
+variable keycloak_client_secret {
+
+}
+
+variable keycloak_realm_name {
+
 }

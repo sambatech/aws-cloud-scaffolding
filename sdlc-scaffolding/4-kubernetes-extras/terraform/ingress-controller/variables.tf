@@ -1,3 +1,7 @@
+variable ingress_controller_service_account_name {
+
+}
+
 variable eks_cluster_name {
     description = "value of the EKS cluster name"
 }

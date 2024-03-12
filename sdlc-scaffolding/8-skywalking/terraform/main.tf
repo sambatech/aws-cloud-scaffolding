@@ -88,9 +88,15 @@ module "deploy" {
     ]
   ])
 
-  alb_name            = var.load_balancer_name
-  waf_arn             = var.waf_arn
-  opensearch_hostname = module.opensearch.out_hostname
-  opensearch_username = module.opensearch.out_username
-  opensearch_password = module.opensearch.out_password
+  waf_arn                                 = var.waf_arn
+  alb_name                                = var.load_balancer_name
+  skywalking_host                         = var.skywalking_host
+  opensearch_hostname                     = module.opensearch.out_hostname
+  opensearch_username                     = module.opensearch.out_username
+  opensearch_password                     = module.opensearch.out_password
+  keycloak_host                           = var.keycloak_host
+  keycloak_realm_name                     = var.keycloak_realm_name
+  keycloak_client_id                      = var.keycloak_client_id
+  keycloak_client_secret                  = var.keycloak_client_secret
+  ingress_controller_service_account_name = var.ingress_controller_service_account_name
 }

@@ -38,6 +38,30 @@ variable waf_arn {
     description = "value of the WAF ARN"
 }
 
+variable skywalking_host {
+  
+}
+
 variable cluster_logging_policy_name {
+  
+}
+
+variable ingress_controller_service_account_name {
+
+}
+
+variable keycloak_host {
+  
+}
+
+variable keycloak_client_id {
+
+}
+
+variable keycloak_client_secret {
+  
+}
+
+variable keycloak_realm_name {
   
 }

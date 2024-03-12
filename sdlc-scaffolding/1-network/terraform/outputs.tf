@@ -1,27 +1,34 @@
-output "out_vpc_id" {
-  value = module.vpc.vpc_id
+output "a_module_title" {
+  value = <<-EOF
+      ______   .______    _______ .__   __.         _______.     ___      .___  ___. .______        ___      
+     /  __  \  |   _  \  |   ____||  \ |  |        /       |    /   \     |   \/   | |   _  \      /   \     
+    |  |  |  | |  |_)  | |  |__   |   \|  |       |   (----`   /  ^  \    |  \  /  | |  |_)  |    /  ^  \    
+    |  |  |  | |   ___/  |   __|  |  . `  |        \   \      /  /_\  \   |  |\/|  | |   _  <    /  /_\  \   
+    |  `--'  | |  |      |  |____ |  |\   |    .----)   |    /  _____  \  |  |  |  | |  |_)  |  /  _____  \  
+     \______/  | _|      |_______||__| \__|    |_______/    /__/     \__\ |__|  |__| |______/  /__/     \__\ 
+                                                                                                             
+  EOF
 }
 
-output "out_vpc_cidr" {
-  value = module.vpc.vpc_cidr_block
-}
+output "b_module_config_notice" {
+  sensitive = false
+  value = <<-EOF
 
-output "out_public_subnet_ids" {
-  value = module.vpc.public_subnets
-}
+    ****************************************
+    * CONFIG NOTICE
+    ****************************************
 
-output "out_private_subnet_ids" {
-  value = module.vpc.private_subnets
-}
+    VPC id.......................: ${module.vpc.vpc_id}
+    VPC cidr.....................: ${module.vpc.vpc_cidr_block}
+    VPC availability zones.......: ${jsonencode(var.availability_zones)}
+    
+    VPC public subnet ids........: ${jsonencode(module.vpc.public_subnets)}
+    VPC public ipv4 subnet cidrs.: ${jsonencode(module.vpc.public_subnets_cidr_blocks)}
+    VPC public ipv6 subnet cidrs.: ${jsonencode(module.vpc.public_subnets_ipv6_cidr_blocks)}
 
-output "out_private_subnets_cidr_blocks" {
-  value = module.vpc.private_subnets_cidr_blocks
-}
-
-output "out_private_subnets_ipv6_cidr_blocks" {
-  value = module.vpc.private_subnets_ipv6_cidr_blocks
-}
-
-output "out_availability_zones" {
-  value = var.availability_zones
+    VPC private subnet ids.......: ${jsonencode(module.vpc.private_subnets)}
+    VPC private ipv4 subnet cidrs: ${jsonencode(module.vpc.private_subnets_cidr_blocks)}
+    VPC private ipv6 subnet cidrs: ${jsonencode(module.vpc.private_subnets_ipv6_cidr_blocks)}
+  
+  EOF
 }

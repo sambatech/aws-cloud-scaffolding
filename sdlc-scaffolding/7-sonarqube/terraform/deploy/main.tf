@@ -497,6 +497,7 @@ metadata:
   labels:
     app: sonarqube
 spec:
+  type: NodePort
   ports:
   - name: http
     port: 9000

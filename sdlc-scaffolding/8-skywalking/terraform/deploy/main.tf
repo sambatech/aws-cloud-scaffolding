@@ -6,6 +6,10 @@ terraform {
       source  = "gavinbunney/kubectl"
       version = ">= 1.7.0"
     }
+    keycloak = {
+      source  = "mrparkers/keycloak"
+      version = "~> 4.4"
+    }
   }
 }
 
@@ -32,12 +36,6 @@ module "eks_fargate-profile" {
   selectors = [{
     namespace = "skywalking"
   }]
-}
-
-data "aws_acm_certificate" "eks_certificate" {
-  domain      = "sambatech.net"
-  key_types   = ["RSA_2048"]
-  most_recent = true
 }
 
 data "aws_iam_policy" "logging_policy" {
@@ -191,6 +189,7 @@ resource "kubectl_manifest" "skywalking_config_map_oap" {
     namespace: skywalking
     name: skywalking-config-oap
   data:
+    TZ: "America/Sao_Paulo"
     SW_CLUSTER: "kubernetes"
     SW_CLUSTER_K8S_NAMESPACE: "skywalking"
     SW_CLUSTER_K8S_LABEL: "app=skywalking,release=samba,component=oap"
@@ -257,11 +256,6 @@ resource "kubectl_manifest" "skywalking_oap_init_job" {
           env:
           - name: JAVA_OPTS
             value: "${local.prefer_ipv4_stack} ${local.prefer_ipv6_stack} -Xmx3g -Xms2g -Dmode=init"
-          - name: SKYWALKING_COLLECTOR_UID
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.uid
           envFrom:
           - configMapRef:
               name: skywalking-config-oap
@@ -378,7 +372,7 @@ resource "kubectl_manifest" "skywalking_oap_service" {
       release: samba
       component: oap
   spec:
-    type: ClusterIP
+    type: NodePort
     ports:
     - port: 11800
       name: grpc
@@ -403,6 +397,7 @@ resource "kubectl_manifest" "skywalking_config_map_ui" {
     namespace: skywalking
     name: skywalking-config-ui
   data:
+    TZ: "America/Sao_Paulo"
     SW_OAP_ADDRESS: "http://skywalking-oap:12800"
   YAML
 
@@ -446,8 +441,9 @@ resource "kubectl_manifest" "skywalking_ui_deployment" {
           image: skywalking.docker.scarf.sh/apache/skywalking-ui:9.2.0
           imagePullPolicy: IfNotPresent
           ports:
-          - containerPort: 8080
-            name: page
+          - name: page
+            containerPort: 8080
+            protocol: TCP
           envFrom:
           - configMapRef:
               name: skywalking-config-ui
@@ -478,10 +474,10 @@ resource "kubectl_manifest" "skywalking_ui_service" {
       component: ui
     name: skywalking-ui
   spec:
-    type: ClusterIP
+    type: NodePort
     ports:
-      - port: 80
-        targetPort: 8080
+      - port: 8080
+        targetPort: page
         protocol: TCP
     selector:
       app: skywalking
@@ -491,5 +487,91 @@ resource "kubectl_manifest" "skywalking_ui_service" {
 
   depends_on = [
       kubectl_manifest.skywalking_namespace
+  ]
+}
+
+resource "kubectl_manifest" "skywalking_secret_alb" {
+  yaml_body = <<-YAML
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    namespace: skywalking
+    name: skywalking-secret-alb
+  type: Opaque
+  data:
+    clientID: "${base64encode(keycloak_openid_client.client.client_id)}"
+    clientSecret: "${base64encode(keycloak_openid_client.client.client_secret)}"
+  YAML
+
+  depends_on = [
+      kubectl_manifest.skywalking_namespace,
+      keycloak_openid_client.client
+  ]
+}
+
+data "aws_acm_certificate" "eks_certificate" {
+  domain      = "sambatech.net"
+  key_types   = ["RSA_2048"]
+  most_recent = true
+}
+
+resource "kubectl_manifest" "skywalking_ingress" {
+  yaml_body = <<YAML
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: skywalking-ingress
+  namespace: skywalking
+  annotations:
+    alb.ingress.kubernetes.io/auth-type: 'oidc'
+    alb.ingress.kubernetes.io/auth-idp-oidc: '${jsonencode({
+      issuer = "https://${var.keycloak_host}/realms/samba"
+      authorizationEndpoint = "https://${var.keycloak_host}/realms/samba/protocol/openid-connect/auth"
+      tokenEndpoint = "https://${var.keycloak_host}/realms/samba/protocol/openid-connect/token"
+      userInfoEndpoint = "https://${var.keycloak_host}/realms/samba/protocol/openid-connect/userinfo"
+      secretName = "skywalking-secret-alb"
+    })}'
+    alb.ingress.kubernetes.io/auth-on-unauthenticated-request: authenticate
+    alb.ingress.kubernetes.io/auth-session-cookie: skywalking-cookie
+    alb.ingress.kubernetes.io/auth-session-timeout: '7200'
+    alb.ingress.kubernetes.io/auth-scope: 'email openid'
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/group.name: 'platform-engineering'
+    alb.ingress.kubernetes.io/load-balancer-name: '${var.alb_name}'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/ip-address-type: dualstack
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/success-codes: '200'
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
+    alb.ingress.kubernetes.io/wafv2-acl-arn: '${var.waf_arn}'
+    alb.ingress.kubernetes.io/certificate-arn: '${data.aws_acm_certificate.eks_certificate.arn}'
+spec:
+  ingressClassName: alb
+  rules:
+  - host: ${var.skywalking_host}
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: skywalking-ui
+            port: 
+              number: 8080
+YAML
+
+  depends_on = [
+    kubectl_manifest.skywalking_namespace,
+    kubectl_manifest.skywalking_ui_service,
+    kubectl_manifest.skywalking_secret_alb
   ]
 }
