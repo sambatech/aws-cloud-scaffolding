@@ -1,0 +1,93 @@
+variable aws_region {
+    description = "The AWS region to deploy the SonarQube"
+}
+
+variable deploy_vpc_id {
+    description = "value of the VPC id"
+}
+
+variable deploy_subnet_ids {
+    description = "value of the VPC subnet ids"
+    type = list
+}
+
+variable deploy_cidr_blocks {
+    description = "value of the VPC cidr blocks"
+}
+
+variable deploy_ipv6_cidr_blocks {
+    description = "value of the VPC ipv6 cidr blocks"
+}
+
+variable deploy_cluster_name {
+    description = "The EKS Cluster name"
+}
+
+variable deploy_cluster_version {
+    description = "The EKS Cluster version"
+}
+
+variable deploy_eks_cluster_endpoint {
+    description = "value of the EKS cluster endpoint"
+}
+
+variable deploy_eks_cluster_certificate_authority_data {
+    description = "value of the EKS cluster certificate authority data"
+}
+
+variable deploy_eks_cluster_auth_token {
+    description = "value of the EKS cluster auth token"
+}
+
+variable deploy_cluster_primary_security_group_id {
+    description = "The cluster security group that was created by Amazon EKS for the cluster."
+}
+
+variable deploy_cluster_security_group_ids {
+    description = "List of security group IDs"
+    type = list(string)
+}
+
+variable deploy_jdbc_username {
+    description = "The username to use for the SonarQube instance"
+}
+
+variable deploy_jdbc_password {
+    description = "The password to use for the SonarQube instance"
+}
+
+variable deploy_jdbc_hostname {
+    description = "The jdbc url to use for the SonarQube instance"
+}
+
+variable deploy_jdbc_port {
+    description = "The jdbc port to use for the SonarQube instance"
+}
+
+variable deploy_alb_name {
+    description = "value of the ALB name"
+}
+
+variable deploy_waf_arn {
+    description = "value"
+}
+
+variable keycloak_realm_name {
+
+}
+
+variable keycloak_client_id {
+    description = "Keycloak client id for kubernetes access"
+}
+
+variable keycloak_client_secret {
+    description = "Keycloak client secret for kubernetes access"
+}
+
+variable keycloak_host {
+    description = "Keycloak hostname"
+}
+
+variable sonarqube_host {
+
+}

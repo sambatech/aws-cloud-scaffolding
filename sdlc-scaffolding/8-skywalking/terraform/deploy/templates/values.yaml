@@ -1,0 +1,66 @@
+oap:
+  name: oap
+  image:
+    repository: skywalking.docker.scarf.sh/apache/skywalking-oap-server
+    tag: "9.2.0"
+    pullPolicy: IfNotPresent
+  storageType: elasticsearch
+  ports:
+    grpc: 11800
+    rest: 12800
+  replicas: 2
+  service:
+    type: ClusterIP
+  javaOpts: -Xmx2g -Xms2g
+  antiAffinity: "soft"
+
+ui:
+  name: ui
+  replicas: 1
+  image:
+    repository: skywalking.docker.scarf.sh/apache/skywalking-ui
+    tag: "9.2.0"
+    pullPolicy: IfNotPresent
+  ingress:
+    enabled: false
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/group.name: 'platform-engineering'
+      alb.ingress.kubernetes.io/load-balancer-name: ${UI_LOADBALANCER_NAME}
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
+      alb.ingress.kubernetes.io/ip-address-type: dualstack
+      alb.ingress.kubernetes.io/backend-protocol: HTTP
+      alb.ingress.kubernetes.io/success-codes: '200'
+      alb.ingress.kubernetes.io/healthcheck-path: /
+      alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+      alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+      alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+      alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+      alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+      alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+      alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
+      alb.ingress.kubernetes.io/wafv2-acl-arn: '${UI_WAFV2_ACL_ARN}'
+      alb.ingress.kubernetes.io/certificate-arn: '${UI_CERTIFICATE_ARN}'
+    path: /*
+    hosts: []
+  service:
+    type: ClusterIP
+    externalPort: 80
+    internalPort: 8080
+
+elasticsearch:
+  enabled: false
+  config:
+    port:
+      http: 9200
+    host: "${OPENSEARCH_HOST}"
+    user: "${OPENSEARCH_USERNAME}"
+    password: "${OPENSEARCH_PASSWORD}"
+
+banyandb:
+  enabled: false
+
+postgresql:
+  enabled: false
