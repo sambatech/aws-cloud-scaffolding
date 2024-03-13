@@ -11,6 +11,10 @@ variable deploy_subnet_ids {
     type = list
 }
 
+variable cluster_service_cidr {
+    
+}
+
 variable deploy_cidr_blocks {
     description = "value of the VPC cidr blocks"
 }

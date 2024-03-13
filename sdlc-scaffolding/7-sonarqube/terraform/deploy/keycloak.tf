@@ -69,8 +69,8 @@ resource "keycloak_saml_client" "client" {
   encrypt_assertions        = false
   client_signature_required = true
 
-#  signing_certificate       = data.local_file.certificate.content
-#  signing_private_key       = data.local_file.private_key.content
+  signing_certificate       = data.local_file.certificate.content
+  signing_private_key       = data.local_file.private_key.content
 
   root_url                  = "https://${var.sonarqube_host}/"
   base_url                  = "https://${var.sonarqube_host}/"

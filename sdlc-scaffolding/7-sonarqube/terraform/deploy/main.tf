@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 0.13"
+  required_version = ">= 0.15"
 
   required_providers {
     kubectl = {
@@ -25,12 +25,13 @@ provider "kubectl" {
 #
 module "eks_managed_node_group" {
   source  = "terraform-aws-modules/eks/aws//modules/eks-managed-node-group"
-  version = "~> 20.0"
+  version = "~> 20.8"
 
   name            = "sonarqube"
   cluster_name    = var.deploy_cluster_name
   cluster_version = var.deploy_cluster_version
 
+  cluster_service_cidr              = var.cluster_service_cidr
   subnet_ids                        = var.deploy_subnet_ids
   cluster_primary_security_group_id = var.deploy_cluster_primary_security_group_id
   vpc_security_group_ids            = var.deploy_cluster_security_group_ids

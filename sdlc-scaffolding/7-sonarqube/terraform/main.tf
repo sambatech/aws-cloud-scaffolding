@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 0.15"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -71,6 +73,7 @@ module "deploy" {
 
   aws_region                                    = var.aws_region
   deploy_vpc_id                                 = data.aws_vpc.instance.id
+  cluster_service_cidr                          = var.cidr_block
   deploy_subnet_ids                             = data.aws_subnets.query.ids
   deploy_cidr_blocks                            = [for s in data.aws_subnet.instance : s.cidr_block]
   deploy_ipv6_cidr_blocks                       = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
