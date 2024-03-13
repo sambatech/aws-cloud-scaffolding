@@ -1,6 +1,4 @@
 terraform {
-  required_version = ">= 0.15"
-  
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -56,17 +54,16 @@ data "aws_eks_cluster_auth" "default" {
   name  = var.cluster_name
 }
 
-module "opensearch" {
-  source = "./opensearch"
+module "rds" {
+  source = "./rds"
 
-  create              = true
-  aws_profile         = var.aws_profile
-  vpc_id              = data.aws_vpc.instance.id
-  subnets_ids         = data.aws_subnets.query.ids
-  subnets_cidr_blocks = [for s in data.aws_subnet.instance : s.cidr_block]
-  ipv6_cidr_blocks    = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
-  availability_zones  = var.availability_zones
-  skywalking_username = var.skywalking_username
+  rds_vpc_id               = data.aws_vpc.instance.id
+  rds_subnet_ids           = data.aws_subnets.query.ids
+  rds_subnets_cidr_blocks  = [for s in data.aws_subnet.instance : s.cidr_block]
+  rds_ipv6_cidr_blocks     = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
+  rds_username             = var.teamcity_username
+  rds_availability_zones   = var.availability_zones
+  rds_create_from_snapshot = false
 }
 
 module "deploy" {
@@ -92,13 +89,5 @@ module "deploy" {
 
   waf_arn                                 = var.waf_arn
   alb_name                                = var.load_balancer_name
-  skywalking_host                         = var.skywalking_host
-  opensearch_hostname                     = module.opensearch.out_hostname
-  opensearch_username                     = module.opensearch.out_username
-  opensearch_password                     = module.opensearch.out_password
-  keycloak_host                           = var.keycloak_host
-  keycloak_realm_name                     = var.keycloak_realm_name
-  keycloak_client_id                      = var.keycloak_client_id
-  keycloak_client_secret                  = var.keycloak_client_secret
-  ingress_controller_service_account_name = var.ingress_controller_service_account_name
+  teamcity_host                           = var.teamcity_host
 }
