@@ -47,14 +47,21 @@ sonarqube_username = "sonarqube"
 ################################
 # KEYCLOAK
 ################################
+keycloak_host          = "sso.sambatech.net"
+keycloak_rds_username  = "keycloak"
 keycloak_realm_name    = "samba"
 keycloak_client_id     = "terraform"
 keycloak_client_secret = "mLYLMCXsdARdPOQioqH77fLL1kbmzoIl"
-keycloak_host          = "sso.sambatech.net"
-keycloak_rds_username  = "keycloak"
 
 ################################
 # SKYWALKING
 ################################
 skywalking_host     = "apm.sambatech.net"
 skywalking_username = "skywalking"
+
+
+################################
+# SKYWALKING
+################################
+teamcity_host         = "ci.sambatech.net"
+teamcity_rds_username = "teamcity"

@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 0.15"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -8,7 +10,7 @@ terraform {
   backend "s3" {
     profile = "platform"
     bucket = "plat-engineering-terraform-st"
-    key    = "sdlc/skywalking.tfstate"
+    key    = "sdlc/teamcity.tfstate"
     region = "us-east-1"
   }
 }
@@ -61,7 +63,7 @@ module "rds" {
   rds_subnet_ids           = data.aws_subnets.query.ids
   rds_subnets_cidr_blocks  = [for s in data.aws_subnet.instance : s.cidr_block]
   rds_ipv6_cidr_blocks     = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
-  rds_username             = var.teamcity_username
+  rds_username             = var.teamcity_rds_username
   rds_availability_zones   = var.availability_zones
   rds_create_from_snapshot = false
 }
@@ -72,6 +74,7 @@ module "deploy" {
   aws_profile = var.aws_profile
   aws_region  = var.aws_region
 
+  repository_name                        = var.repository_name
   eks_cluster_name                       = var.cluster_name
   cluster_ip_family                      = var.cluster_ip_family
   eks_cluster_version                    = data.aws_eks_cluster.default.version
@@ -87,7 +90,20 @@ module "deploy" {
     ]
   ])
 
-  waf_arn                                 = var.waf_arn
-  alb_name                                = var.load_balancer_name
-  teamcity_host                           = var.teamcity_host
+  vpc_id                 = data.aws_vpc.instance.id
+  ipv4_cidr_blocks       = [for s in data.aws_subnet.instance : s.cidr_block]
+  ipv6_cidr_blocks       = [for s in data.aws_subnet.instance : s.ipv6_cidr_block]
+  rds_hostname           = module.rds.out_database_hostname
+  rds_port               = module.rds.out_database_port
+  rds_username           = module.rds.out_database_username
+  rds_password           = module.rds.out_database_password
+  waf_arn                = var.waf_arn
+  alb_name               = var.load_balancer_name
+  teamcity_host          = var.teamcity_host
+
+  keycloak_client_id     = var.keycloak_client_id
+  keycloak_client_secret = var.keycloak_client_secret
+  keycloak_host          = var.keycloak_host
+  keycloak_realm_name    = var.keycloak_realm_name
+
 }

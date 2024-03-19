@@ -25,28 +25,6 @@ locals {
   prefer_ipv6_stack = "-Djava.net.preferIPv6Addresses=${lower(var.cluster_ip_family) == "ipv6" ? "true" : "false"}"
 }
 
-module "eks_fargate-profile" {
-  source  = "terraform-aws-modules/eks/aws//modules/fargate-profile"
-  version = "~> 20.0"
-
-  name         = "skywalking-fargate"
-  cluster_name = var.eks_cluster_name
-  subnet_ids   = var.eks_subnet_ids
-
-  selectors = [{
-    namespace = "skywalking"
-  }]
-}
-
-data "aws_iam_policy" "logging_policy" {
-  name = var.eks_logging_policy_name
-}
-
-resource "aws_iam_role_policy_attachment" "logging_policy_attach" {
-  role       = module.eks_fargate-profile.iam_role_name
-  policy_arn = data.aws_iam_policy.logging_policy.arn
-}
-
 ###########################################################################
 # Os recursos abaixo foram criados com o uso do comando:
 # helm template local oci://registry-1.docker.io/apache/skywalking-helm \

@@ -42,5 +42,6 @@ output "b_module_config_notice" {
              (Keycloak > Realm ${var.keycloak_realm_name} > Clients > sonarqube > keys > Certificate)
 
     ${module.deploy.keycloak_service_provider_certificate}
+
   EOF
 }

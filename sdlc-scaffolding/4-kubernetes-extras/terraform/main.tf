@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.36"
     }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = ">= 1.7.0"
+    }
   }
   backend "s3" {
     profile = "platform"
@@ -68,17 +72,6 @@ provider "kubernetes" {
   host                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
   cluster_ca_certificate = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
   token                  = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
-}
-
-module "log" {
-  source = "./log"
-
-  log_cluster_name                           = var.cluster_name
-  log_logging_policy_name                    = var.cluster_logging_policy_name
-  log_subnet_ids                             = data.aws_subnets.query.ids
-  log_eks_cluster_endpoint                   = element(concat(data.aws_eks_cluster.default[*].endpoint, tolist([""])), 0)
-  log_eks_cluster_certificate_authority_data = base64decode(element(concat(data.aws_eks_cluster.default[*].certificate_authority.0.data, tolist([""])), 0))
-  log_eks_cluster_auth_token                 = element(concat(data.aws_eks_cluster_auth.default[*].token, tolist([""])), 0)
 }
 
 module "efs" {

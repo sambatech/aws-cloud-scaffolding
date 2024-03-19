@@ -45,3 +45,63 @@ variable eks_cluster_security_group_ids {
 variable eks_logging_policy_name {
 
 }
+
+variable vpc_id {
+
+}
+
+variable ipv4_cidr_blocks {
+
+}
+
+variable ipv6_cidr_blocks {
+  
+}
+
+variable rds_hostname {
+
+}
+
+variable rds_port {
+
+}
+
+variable rds_username {
+
+}
+
+variable rds_password {
+
+}
+
+variable waf_arn {
+
+}
+
+variable alb_name {
+
+}
+
+variable teamcity_host {
+
+}
+
+variable repository_name {
+  
+}
+
+variable keycloak_client_id {
+
+}
+
+variable keycloak_client_secret {
+
+}
+
+variable keycloak_host {
+
+}
+
+variable keycloak_realm_name {
+  
+}

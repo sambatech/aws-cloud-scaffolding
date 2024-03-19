@@ -1,5 +1,5 @@
 output out_keycloak_realm_saml_endpoint {
-  value     = "https://${var.keycloak_host}/realms/${var.keycloak_realm_name}/protocol/saml/descriptor"
+  value = "https://${var.keycloak_host}/realms/${var.keycloak_realm_name}/protocol/saml/descriptor"
 }
 
 output keycloak_identity_provider_certificate {

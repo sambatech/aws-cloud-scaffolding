@@ -37,36 +37,18 @@ resource "time_static" "tag" {
   }
 }
 
-module "eks_fargate-profile" {
-  source  = "terraform-aws-modules/eks/aws//modules/fargate-profile"
-  version = "~> 20.0"
-
-  name         = "keycloak-fargate"
-  cluster_name = var.deploy_cluster_name
-  subnet_ids   = var.deploy_subnet_ids
-
-  selectors = [{
-    namespace = "keycloak"
-  }]
-}
-
-data "aws_iam_policy" "logging_policy" {
-  name = var.deploy_logging_policy_name
-}
-
-resource "aws_iam_role_policy_attachment" "logging_policy_attach" {
-  role       = module.eks_fargate-profile.iam_role_name
-  policy_arn = data.aws_iam_policy.logging_policy.arn
-}
-
 resource "null_resource" "keycloak_build" {
 	
+  #
+  # https://aws.amazon.com/pt/blogs/containers/reducing-aws-fargate-startup-times-with-zstd-compressed-container-images/
+  #
   provisioner "local-exec" {
     command = <<-EOF
       aws ecr get-login-password --region ${data.aws_region.current.name} --profile ${var.aws_profile} | docker login --username AWS --password-stdin \
         ${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com
-      docker build -t "${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}" "${path.module}/docker"
-      docker push "${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix}"
+      docker buildx create --name zstd-builder --driver docker-container --driver-opt image=moby/buildkit:v0.13.0
+      docker buildx use zstd-builder
+      docker buildx build --output type=image,name=${data.aws_ecr_repository.selected.repository_url}:keycloak-v${time_static.tag.unix},oci-mediatypes=true,compression=zstd,compression-level=3,force-compression=true,push=true ${path.module}/docker
     EOF
   }
 

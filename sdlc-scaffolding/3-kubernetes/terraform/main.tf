@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.36"
     }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = ">= 1.7.0"
+    }
   }
   backend "s3" {
     profile = "platform"
@@ -193,9 +197,24 @@ module "eks" {
 
   # See https://docs.aws.amazon.com/eks/latest/userguide/fargate-pod-configuration.html
   fargate_profiles = {
-    default-fargate = {
+    default = {
       selectors = [
         { namespace = "default" }
+      ]
+    }
+    keycloak = {
+      selectors = [
+        { namespace = "keycloak" }
+      ]
+    }
+    skywalking = {
+      selectors = [
+        { namespace = "skywalking" }
+      ]
+    }
+    teamcity = {
+      selectors = [
+        { namespace = "teamcity" }
       ]
     }
   }
@@ -224,13 +243,13 @@ resource "kubernetes_config_map_v1_data" "aws_auth" {
       - groups:
         - system:masters
         rolearn: ${var.iam_federated_role_name}
-        username: AWSReservedSSO-AdministratorAccess-Role
+        username: AWSReservedSSO-AdministratorAccess-Role%{for profile in module.eks.fargate_profiles}
       - groups:
         - system:bootstrappers
         - system:nodes
         - system:node-proxier
-        rolearn: arn:aws:iam::021847444320:role/default-fargate-20240306114145114700000006
-        username: system:node:{{SessionName}}
+        rolearn: ${profile.iam_role_arn}
+        username: system:node:{{SessionName}}%{endfor}
     EOT
   }
 

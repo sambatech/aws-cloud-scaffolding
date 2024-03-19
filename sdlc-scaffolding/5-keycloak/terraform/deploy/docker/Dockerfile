@@ -1,6 +1,6 @@
 FROM quay.io/keycloak/keycloak:23.0.6 AS builder
 
-# Configure a database vendor........
+# Configure a database vendor.
 ENV KC_DB=postgres
 # Enable health and metrics support
 ENV KC_HEALTH_ENABLED=true

@@ -17,7 +17,7 @@ output "b_module_config_notice" {
     * CONFIG NOTICE
     ****************************************
 
-    The credentials of this module are persisted into AWS Secret Manager of the used account
+    1) The credentials of this module are persisted into AWS Secret Manager of the used account
 
   EOF
 }

@@ -26,7 +26,7 @@ variable cluster_ip_family {
 
 }
 
-variable skywalking_username {
+variable teamcity_rds_username {
 
 }
 
@@ -38,7 +38,11 @@ variable waf_arn {
     description = "value of the WAF ARN"
 }
 
-variable skywalking_host {
+variable repository_name {
+
+}
+
+variable teamcity_host {
   
 }
 
